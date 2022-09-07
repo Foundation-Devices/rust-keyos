@@ -20,7 +20,7 @@ When porting the standard library to a new operating system, a piecemeal approac
 
 ## Installing Prebuilt Releases
 
-1. Ensure you are running Rust 1.61.0. Future versions of Rust will need a different version of this software.
+1. Ensure you are running Rust 1.62.0. Future versions of Rust will need a different version of this software.
 2. Download the latest release from the [releases](https://github.com/betrusted-io/rust/releases/latest) page
 3. Unzip the zipfile to your Rust sysroot. On Unix systems can do this with something like:
 ```sh
