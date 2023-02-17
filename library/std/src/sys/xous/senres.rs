@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::os::xous::ffi::{InvokeType, Syscall, SyscallResult};
+use crate::os::xous::ffi::{InvokeType, Syscall, SyscallResult, Arguments};
 use core::cell::Cell;
 use core::convert::TryInto;
 
@@ -86,29 +86,38 @@ fn return_memory_message(message_id: usize, data_addr: usize, data_len: usize) -
 
 #[cfg(all(target_os = "xous", target_arch = "arm"))]
 fn return_memory_message(message_id: usize, data_addr: usize, data_len: usize) -> usize {
-    let r0 = Syscall::ReturnMemory as usize;
+    let a0 = Syscall::ReturnMemory as usize;
 
     // "Offset"
-    let r4 = 0;
+    let a4 = 0;
 
     // "Valid"
-    let r5 = 0;
+    let a5 = 0;
 
-    let mut result: usize;
+    let res = [0usize; 8];
+    let args = Arguments {
+        a0,
+        a1: message_id,
+        a2: data_addr,
+        a3: data_len,
+        a4,
+        a5,
+        a6: 0,
+        a7: 0,
+    };
 
     unsafe {
+        let args = &args as *const Arguments;
         core::arch::asm!(
-            "svc 0",
-            inlateout("r0") r0 => result,
-            inlateout("r1") message_id => _,
-            inlateout("r2") data_addr => _,
-            inlateout("r3") data_len=> _,
-            inlateout("r4") r4 => _,
-            inlateout("r5") r5 => _,
-            out("r7") _,
-        )
+            "svc #0",
+            "stm r9, {{ r0-r7 }}",
+            in("r0") args,
+            in("r9") &res,
+            options(nostack)
+        );
     };
-    result
+
+    res[0]
 }
 
 impl<'a> Drop for Message<'a> {
@@ -222,27 +231,37 @@ pub trait Senres {
 
     #[cfg(all(target_os = "xous", target_arch = "arm"))]
     fn lend(&self, connection: u32, opcode: usize) -> Result<(), ()> {
-        let mut r0 = Syscall::SendMessage as usize;
-        let r1: usize = connection.try_into().unwrap();
-        let r2 = InvokeType::Lend as usize;
-        let r3 = opcode;
-        let r4 = self.as_ptr() as usize;
-        let r5 = self.len();
+        let a0 = Syscall::SendMessage as usize;
+        let a1: usize = connection.try_into().unwrap();
+        let a2 = InvokeType::Lend as usize;
+        let a3 = opcode;
+        let a4 = self.as_ptr() as usize;
+        let a5 = self.len();
 
-        unsafe {
-            core::arch::asm!(
-                "svc 0",
-                inlateout("r0") r0,
-                inlateout("r1") r1 => _,
-                inlateout("r2") r2 => _,
-                inlateout("r3") r3 => _,
-                inlateout("r4") r4 => _,
-                inlateout("r5") r5 => _,
-                out("r7") _,
-            )
+        let res = [0usize; 8];
+        let args = Arguments {
+            a0,
+            a1,
+            a2,
+            a3,
+            a4,
+            a5,
+            a6: 0,
+            a7: 0,
         };
 
-        let result = r0;
+        unsafe {
+            let args = &args as *const Arguments;
+            core::arch::asm!(
+                "svc #0",
+                "stm r9, {{ r0-r7 }}",
+                in("r0") args,
+                in("r9") &res,
+                options(nostack)
+            );
+        };
+
+        let result = res[0];
         if result == SyscallResult::MemoryReturned as usize {
             Ok(())
         } else {
@@ -307,29 +326,39 @@ pub trait SenresMut: Senres {
     }
     #[cfg(all(target_os = "xous", target_arch = "arm"))]
     fn lend_mut(&mut self, connection: u32, opcode: usize) -> Result<(usize, usize), ()> {
-        let mut r0 = Syscall::SendMessage as usize;
-        let mut r1: usize = connection.try_into().unwrap();
-        let mut r2 = InvokeType::LendMut as usize;
-        let r3 = opcode;
-        let r4 = self.as_mut_ptr() as usize;
-        let r5 = self.len();
+        let a0 = Syscall::SendMessage as usize;
+        let a1: usize = connection.try_into().unwrap();
+        let a2 = InvokeType::LendMut as usize;
+        let a3 = opcode;
+        let a4 = self.as_mut_ptr() as usize;
+        let a5 = self.len();
 
-        unsafe {
-            core::arch::asm!(
-                "svc 0",
-                inlateout("r0") r0,
-                inlateout("r1") r1,
-                inlateout("r2") r2,
-                inlateout("r3") r3 => _,
-                inlateout("r4") r4 => _,
-                inlateout("r5") r5 => _,
-                out("r7") _,
-            )
+        let res = [0usize; 8];
+        let args = Arguments {
+            a0,
+            a1,
+            a2,
+            a3,
+            a4,
+            a5,
+            a6: 0,
+            a7: 0,
         };
 
-        let result = r0;
-        let offset = r1;
-        let valid = r2;
+        unsafe {
+            let args = &args as *const Arguments;
+            core::arch::asm!(
+                "svc #0",
+                "stm r9, {{ r0-r7 }}",
+                in("r0") args,
+                in("r9") &res,
+                options(nostack)
+            );
+        };
+
+        let result = res[0];
+        let offset = res[1];
+        let valid = res[2];
 
         if result == SyscallResult::MemoryReturned as usize {
             Ok((offset, valid))
