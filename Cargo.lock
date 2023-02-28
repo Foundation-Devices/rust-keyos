@@ -319,12 +319,12 @@ checksum = "8c97b9233581d84b8e1e689cdd3a47b6f69770084fc246e86a7f78b0d9c1d4a5"
 [[package]]
 name = "dlmalloc"
 version = "0.2.4"
-source = "git+https://github.com/Foundation-Devices/dlmalloc-rs.git?branch=xous-fixes-arm#9d58282c1c0c317c07b38b8f4e9af246738775a3"
+source = "git+ssh://git@github.com/Foundation-Devices/dlmalloc-rs.git?branch=xous-fixes-arm#9d58282c1c0c317c07b38b8f4e9af246738775a3"
 dependencies = [
  "compiler_builtins",
  "libc",
  "rustc-std-workspace-core",
- "xous",
+ "xous 0.9.33 (git+https://github.com/Foundation-Devices/keyOS.git?branch=arm-keyos)",
 ]
 
 [[package]]
@@ -2488,7 +2488,7 @@ dependencies = [
  "std_detect",
  "unwind",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "xous",
+ "xous 0.9.33 (git+ssh://git@github.com/Foundation-Devices/keyOS.git?branch=arm-keyos)",
 ]
 
 [[package]]
@@ -2979,8 +2979,18 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
 name = "xous"
-version = "0.9.28"
-source = "git+https://github.com/Foundation-Devices/keyOS.git?branch=arm-keyos#19b100f8093414ebf839b78d082fc736996def32"
+version = "0.9.33"
+source = "git+ssh://git@github.com/Foundation-Devices/keyOS.git?branch=arm-keyos#7e321a61da2f18f75b2fe3e14072d289b4af276c"
+dependencies = [
+ "compiler_builtins",
+ "lazy_static",
+ "rustc-std-workspace-core",
+]
+
+[[package]]
+name = "xous"
+version = "0.9.33"
+source = "git+https://github.com/Foundation-Devices/keyOS.git?branch=arm-keyos#7e321a61da2f18f75b2fe3e14072d289b4af276c"
 dependencies = [
  "compiler_builtins",
  "lazy_static",
@@ -2988,9 +2998,9 @@ dependencies = [
 ]
 
 [[patch.unused]]
-name = "clippy_lints"
-version = "0.1.66"
-
-[[patch.unused]]
 name = "rustc-workspace-hack"
 version = "1.0.0"
+
+[[patch.unused]]
+name = "clippy_lints"
+version = "0.1.66"
