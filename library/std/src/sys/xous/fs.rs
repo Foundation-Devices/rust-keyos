@@ -4,7 +4,7 @@ use crate::ffi::OsString;
 use crate::fmt;
 use crate::hash::Hash;
 use crate::io::{self, IoSlice, IoSliceMut, BorrowedCursor, SeekFrom};
-use crate::os::xous::ffi::{InvokeType, OsStrExt, Syscall, SyscallResult};
+use crate::os::xous::ffi::{InvokeType, OsStrExt, Syscall, SyscallResult, Arguments};
 use crate::path::{Path, PathBuf};
 use crate::sys::time::SystemTime;
 use crate::sys::unsupported;
@@ -311,30 +311,40 @@ impl File {
 
         #[cfg(target_arch = "arm")]
         let (result, offset, valid) = {
-            let mut r0 = Syscall::SendMessage as usize;
-            let mut r1: usize = services::pddb() as usize;
-            let mut r2 = InvokeType::LendMut as usize;
-            let r3 = (pddb::Opcodes::ReadKeyStd as usize) | ((self.fd as usize) << 16);
-            let r4 = buffer.data.as_mut_ptr() as usize;
-            let r5 = buffer.data.len();
-            let r7 = buf.len().min(buffer.data.len());
+            let a0 = Syscall::SendMessage as usize;
+            let a1: usize = services::pddb() as usize;
+            let a2 = InvokeType::LendMut as usize;
+            let a3 = (pddb::Opcodes::ReadKeyStd as usize) | ((self.fd as usize) << 16);
+            let a4 = buffer.data.as_mut_ptr() as usize;
+            let a5 = buffer.data.len();
+            let a6 = 0;
+            let a7 = buf.len().min(buffer.data.len());
 
-            unsafe {
-                core::arch::asm!(
-                    "svc 0",
-                    inlateout("r0") r0,
-                    inlateout("r1") r1,
-                    inlateout("r2") r2,
-                    inlateout("r3") r3 => _,
-                    inlateout("r4") r4 => _,
-                    inlateout("r5") r5 => _,
-                    inlateout("r7") r7 => _,
-                )
+            let res = [0usize; 8];
+            let args = Arguments {
+                a0,
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
             };
 
-            (r0, r1, r2)
-        };
+            unsafe {
+                let args = &args as *const Arguments;
+                core::arch::asm!(
+                    "svc #0",
+                    "stm r9, {{ r0-r7 }}",
+                    in("r0") args,
+                    in("r9") &res,
+                    options(nostack)
+                );
+            };
 
+            (res[0], res[1], res[2])
+        };
 
         if result == SyscallResult::MemoryReturned as usize {
             if offset != 0 {
@@ -413,29 +423,40 @@ impl File {
 
         #[cfg(target_arch = "arm")]
         let (result, offset, valid) = {
-            let mut r0 = Syscall::SendMessage as usize;
-            let mut r1: usize = services::pddb() as usize;
+            let a0 = Syscall::SendMessage as usize;
+            let a1: usize = services::pddb() as usize;
             // Note this must be a LendMut in order to get error information back
-            let mut r2 = InvokeType::LendMut as usize;
-            let r3 = (pddb::Opcodes::WriteKeyStd as usize) | ((self.fd as usize) << 16);
-            let r4 = buffer.data.as_ptr() as usize;
-            let r5 = buffer.data.len();
-            let r7 = valid;
+            let a2 = InvokeType::LendMut as usize;
+            let a3 = (pddb::Opcodes::WriteKeyStd as usize) | ((self.fd as usize) << 16);
+            let a4 = buffer.data.as_ptr() as usize;
+            let a5 = buffer.data.len();
+            let a6 = 0;
+            let a7 = valid;
 
-            unsafe {
-                core::arch::asm!(
-                    "svc 0",
-                    inlateout("r0") r0,
-                    inlateout("r1") r1,
-                    inlateout("r2") r2,
-                    inlateout("r3") r3 => _,
-                    inlateout("r4") r4 => _,
-                    inlateout("r5") r5 => _,
-                    inlateout("r7") r7 => _,
-                )
+            let res = [0usize; 8];
+            let args = Arguments {
+                a0,
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
             };
 
-            (r0, r1, r2)
+            unsafe {
+                let args = &args as *const Arguments;
+                core::arch::asm!(
+                    "svc #0",
+                    "stm r9, {{ r0-r7 }}",
+                    in("r0") args,
+                    in("r9") &res,
+                    options(nostack)
+                );
+            };
+
+            (res[0], res[1], res[2])
         };
 
         if result == SyscallResult::MemoryReturned as usize {
@@ -503,30 +524,39 @@ impl File {
 
         #[cfg(target_arch = "arm")]
         let (result, a1, a2) = {
-            let mut r0 = Syscall::SendMessage as usize;
-            let mut r1: usize = services::pddb() as usize;
-            let mut r2 = InvokeType::BlockingScalar as usize;
-            let r3 = opcode;
-            let r4 = arg1;
-            let r5 = arg2;
-            //let r6 = arg3; TODO:
-            let r7 = arg4;
+            let a0 = Syscall::SendMessage as usize;
+            let a1: usize = services::pddb() as usize;
+            let a2 = InvokeType::BlockingScalar as usize;
+            let a3 = opcode;
+            let a4 = arg1;
+            let a5 = arg2;
+            let a6 = arg3;
+            let a7 = arg4;
 
-            unsafe {
-                core::arch::asm!(
-                    "svc 0",
-                    inout("r0") r0,
-                    inout("r1") r1,
-                    inout("r2") r2,
-                    inout("r3") r3 => _,
-                    inout("r4") r4 => _,
-                    inout("r5") r5 => _,
-                    //inout("r6") r6 => _,
-                    inout("r7") r7 => _,
-                )
+            let res = [0usize; 8];
+            let args = Arguments {
+                a0,
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
             };
 
-            (r0, r1, r0)
+            unsafe {
+                let args = &args as *const Arguments;
+                core::arch::asm!(
+                    "svc #0",
+                    "stm r9, {{ r0-r7 }}",
+                    in("r0") args,
+                    in("r9") &res,
+                    options(nostack)
+                );
+            };
+
+            (res[0], res[1], res[2])
         };
 
         if result == SyscallResult::Scalar2 as usize {
