@@ -124,9 +124,8 @@ pub enum SyscallResult {
     MemoryReturned = 18,
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
 #[repr(C)]
-#[derive(Debug)]
+#[stable(feature = "rust1", since = "1.0.0")]
 pub struct Arguments {
     pub a0: usize,
     pub a1: usize,
@@ -172,31 +171,21 @@ pub fn lend_mut(
     };
 
     #[cfg(target_arch = "arm")]
-    let (a0, a1, a2) = {
-        let res = [0usize; 8];
+    {
         let args = Arguments {
-            a0,
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
+            a0, a1, a2, a3, a4, a5, a6, a7
         };
-
+        let mut args_ptr = &args as *const Arguments;
         unsafe {
-            let args = &args as *const Arguments;
             core::arch::asm!(
                 "svc #0",
-                "stm r9, {{ r0-r7 }}",
-                in("r0") args,
-                in("r9") &res,
+                inlateout("r0") args_ptr,
                 options(nostack)
             );
         };
-
-        (res[0], res[1], res[2])
+        a0 = args.a0;
+        a1 = args.a1;
+        a2 = args.a2;
     };
 
     let result = a0;
@@ -243,31 +232,21 @@ pub fn lend(
     };
 
     #[cfg(target_arch = "arm")]
-    let (a0, a6, a7) = {
-        let res = [0usize; 8];
+    {
         let args = Arguments {
-            a0,
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
+            a0, a1, a2, a3, a4, a5, a6, a7
         };
-
+        let mut args_ptr = &args as *const Arguments;
         unsafe {
-            let args = &args as *const Arguments;
             core::arch::asm!(
                 "svc #0",
-                "stm r9, {{ r0-r7 }}",
-                in("r0") args,
-                in("r9") &res,
+                inlateout("r0") args_ptr,
                 options(nostack)
             );
         };
-
-        (res[0], res[6], res[7])
+        a0 = args.a0;
+        a6 = args.a6;
+        a7 = args.a7;
     };
 
     let result = a0;
@@ -292,10 +271,9 @@ pub fn return_memory(
     let a6 = 0;
     let a7 = 0;
 
-    #[cfg(target_arch = "riscv32")]
     let mut result: usize;
-    #[cfg(target_arch = "riscv32")]
     let mut error: usize;
+
     #[cfg(target_arch = "riscv32")]
     unsafe {
         core::arch::asm!(
@@ -312,31 +290,20 @@ pub fn return_memory(
     };
 
     #[cfg(target_arch = "arm")]
-    let (result, error) = {
-        let res = [0usize; 8];
+    {
         let args = Arguments {
-            a0,
-            a1,
-            a2: memory.as_ptr() as _,
-            a3: memory.len(),
-            a4: arg1,
-            a5: arg2,
-            a6,
-            a7,
+            a0, a1, a2: memory.as_ptr() as usize, a3: memory.len(), a4: arg1, a5: arg2, a6, a7
         };
-
+        let mut args_ptr = &args as *const Arguments;
         unsafe {
-            let args = &args as *const Arguments;
             core::arch::asm!(
                 "svc #0",
-                "stm r9, {{ r0-r7 }}",
-                in("r0") args,
-                in("r9") &res,
+                inlateout("r0") args_ptr,
                 options(nostack)
             );
         };
-
-        (res[0], res[1])
+        result = args.a0;
+        error = args.a1;
     };
 
     if result == SyscallResult::MemoryReturned as usize {
@@ -357,10 +324,9 @@ pub fn return_scalar(message_id: MessageId, args: [usize; 5]) -> Result<(), usiz
     let a6 = args.get(4).map(|v| *v).unwrap_or_default();
     let a7 = 0;
 
-    #[cfg(target_arch = "riscv32")]
     let mut result: usize;
-    #[cfg(target_arch = "riscv32")]
     let mut error: usize;
+
     #[cfg(target_arch = "riscv32")]
     unsafe {
         core::arch::asm!(
@@ -377,31 +343,20 @@ pub fn return_scalar(message_id: MessageId, args: [usize; 5]) -> Result<(), usiz
     };
 
     #[cfg(target_arch = "arm")]
-    let (result, error) = {
-        let res = [0usize; 8];
+    {
         let args = Arguments {
-            a0,
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
+            a0, a1, a2, a3, a4, a5, a6, a7
         };
-
+        let mut args_ptr = &args as *const Arguments;
         unsafe {
-            let args = &args as *const Arguments;
             core::arch::asm!(
                 "svc #0",
-                "stm r9, {{ r0-r7 }}",
-                in("r0") args,
-                in("r9") &res,
+                inlateout("r0") args_ptr,
                 options(nostack)
             );
         };
-
-        (res[0], res[1])
+        result = args.a0;
+        error = args.a1;
     };
 
     if result == SyscallResult::Ok as usize {
@@ -422,9 +377,7 @@ pub fn connect(address: ServerAddress) -> Result<Connection, usize> {
     let a6 = 0;
     let a7 = 0;
 
-    #[cfg(target_arch = "riscv32")]
     let mut result: usize;
-    #[cfg(target_arch = "riscv32")]
     let mut value: usize;
 
     #[cfg(target_arch = "riscv32")]
@@ -443,31 +396,20 @@ pub fn connect(address: ServerAddress) -> Result<Connection, usize> {
     };
 
     #[cfg(target_arch = "arm")]
-    let (result, value) = {
-        let res = [0usize; 8];
+    {
         let args = Arguments {
-            a0,
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
+            a0, a1, a2, a3, a4, a5, a6, a7
         };
-
+        let mut args_ptr = &args as *const Arguments;
         unsafe {
-            let args = &args as *const Arguments;
             core::arch::asm!(
                 "svc #0",
-                "stm r9, {{ r0-r7 }}",
-                in("r0") args,
-                in("r9") &res,
+                inlateout("r0") args_ptr,
                 options(nostack)
             );
         };
-
-        (res[0], res[1])
+        result = args.a0;
+        value = args.a1;
     };
 
     if result == SyscallResult::ConnectionID as usize {
