@@ -111,7 +111,7 @@ impl Thread {
             #[cfg(target_arch = "arm")]
             unsafe {
                 if let Ok(mr) = xous::MemoryRange::new(mapped_memory_base, mapped_memory_length) {
-                    xous::syscall::unmap_memory(mr);
+                    xous::syscall::unmap_memory(mr).ok();
                 }
             }
 
