@@ -10,7 +10,7 @@
   "emit-debug-gdb-scripts": false,
   "c-enum-min-bits": 8,
   "arch": "arm",
-  "features": "+aclass,+v7,+thumb2,+vfp4d16,-d32,+neon,+strict-align",
+  "features": "+aclass,+v7,+thumb2,+vfp4d16,+d32,+neon,+strict-align",
   "executables": true,
   "relocation-model": "static",
   "os": "xous"
