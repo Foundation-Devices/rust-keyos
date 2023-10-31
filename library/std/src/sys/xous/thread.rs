@@ -3,6 +3,7 @@ use crate::io;
 use crate::num::NonZeroUsize;
 use crate::sys::services::ticktimer;
 use crate::time::Duration;
+
 use core::arch::asm;
 
 pub struct Thread {
@@ -95,6 +96,9 @@ impl Thread {
             // Deallocate the stack memory, along with the guard pages.
             let mapped_memory_base = guard_page_pre;
             let mapped_memory_length = GUARD_PAGE_SIZE + stack_size + GUARD_PAGE_SIZE;
+
+            // Deallocate the stack memory, along with the guard pages.
+            #[cfg(target_arch = "riscv32")]
             unsafe {
                 asm!(
                     "ecall",
@@ -105,9 +109,24 @@ impl Thread {
                 );
             }
 
+            #[cfg(target_arch = "arm")]
+            unsafe {
+                if let Ok(mr) = xous::MemoryRange::new(mapped_memory_base, mapped_memory_length) {
+                    xous::syscall::unmap_memory(mr).ok();
+                }
+            }
+
             // Exit the thread by returning to the magic address 0xff80_3000u32
+            #[cfg(target_arch = "riscv32")]
             unsafe {
                 asm!("ret", in("a0") 0, in("ra") 0xff80_3000u32,
+                    options(nomem, nostack, noreturn)
+                );
+            }
+
+            #[cfg(target_arch = "arm")]
+            unsafe {
+                asm!("bx {}", in(reg) 0xff80_3000u32,
                     options(nomem, nostack, noreturn)
                 );
             }

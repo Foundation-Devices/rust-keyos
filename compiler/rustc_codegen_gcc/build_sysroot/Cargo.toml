@@ -8,7 +8,7 @@ core = { path = "./sysroot_src/library/core" }
 compiler_builtins = "0.1"
 alloc = { path = "./sysroot_src/library/alloc" }
 std = { path = "./sysroot_src/library/std", features = ["panic_unwind", "backtrace"] }
-test = { path = "./sysroot_src/library/test" }
+test = { path = "./sysroot_src/library/sysroot" }
 proc_macro = { path = "./sysroot_src/library/proc_macro" }
 
 [patch.crates-io]

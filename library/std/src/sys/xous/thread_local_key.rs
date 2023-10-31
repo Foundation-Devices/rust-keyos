@@ -30,6 +30,19 @@ static TLS_COMMON: TlsCommon = TlsCommon {
     destructors: unsafe { core::mem::transmute([0usize; TLS_KEY_COUNT]) },
 };
 
+#[cfg(target_arch = "arm")]
+fn tls_ptr_addr() -> *const Tls {
+    let mut tp: usize;
+    unsafe {
+        asm!(
+            "mrc p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+            out(reg) tp
+        )
+    }
+    core::ptr::from_exposed_addr_mut::<Tls>(tp)
+}
+
+#[cfg(target_arch = "riscv32")]
 fn tls_ptr_addr() -> *const Tls {
     let mut tp: usize;
     unsafe {
@@ -43,6 +56,7 @@ fn tls_ptr_addr() -> *const Tls {
 
 /// Create an area of memory that's unique per thread. This area will
 /// contain all thread local pointers.
+#[cfg(target_arch = "riscv32")]
 fn tls_ptr() -> *const Tls {
     let mut tp = tls_ptr_addr();
 
@@ -70,6 +84,42 @@ fn tls_ptr() -> *const Tls {
             asm!(
                 "mv tp, {}",
                 in(reg) tp as usize,
+            );
+        }
+    }
+    tp
+}
+
+/// Create an area of memory that's unique per thread. This area will
+/// contain all thread local pointers.
+#[cfg(target_arch = "arm")]
+fn tls_ptr() -> *const Tls {
+    let mut tp = tls_ptr_addr();
+
+    // If the TP register is `0`, then this thread hasn't initialized
+    // its TLS yet. Allocate a new page to store this memory.
+    if tp.is_null() {
+        let syscall = xous::SysCall::MapMemory(
+            None,
+            None,
+            xous::MemorySize::new(TLS_MEMORY_SIZE).unwrap(),
+            xous::MemoryFlags::R | xous::MemoryFlags::W,
+        );
+
+        let Ok(xous::Result::MemoryRange(mem)) = xous::rsyscall(syscall) else {
+            panic!("unable to allocate memory for thread local storage")
+        };
+
+        tp = mem.as_mut_ptr() as *const Tls;
+        // unsafe { (tp as *mut usize).write_volatile(0) };
+        let tp_usize = tp as usize;
+        assert!((tp_usize & 0x3ff) == 0);
+
+        unsafe {
+            // Set the hardware thread pointer
+            asm!(
+                "mcr p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+                in(reg) tp,
             );
         }
     }
@@ -167,7 +217,18 @@ pub unsafe fn destroy_tls() {
     let syscall = xous::SysCall::UnmapMemory(tls_memory);
     xous::rsyscall(syscall).unwrap();
 
+    #[cfg(target_arch = "riscv32")]
     unsafe { asm!("mv tp, x0") };
+
+    #[cfg(target_arch = "arm")]
+    unsafe {
+        // Set the hardware thread pointer
+        let tp: usize = 0;
+        asm!(
+            "mcr p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+            in(reg) tp,
+        );
+    }
 }
 
 unsafe fn run_dtors() {
