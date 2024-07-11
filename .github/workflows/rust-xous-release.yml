@@ -46,6 +46,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ steps.extract_rust_info.outputs.version }}
+          nightly: ${{ contains(github.ref, 'nightly') }}
           default: true
           override: true
           target: ${{ steps.extract_rust_info.outputs.target }}
