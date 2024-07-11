@@ -37,7 +37,7 @@ jobs:
           esac
 
           echo "##[set-output name=target;]$target"
-          echo "##[set-output name=version;]$(echo ${GITHUB_REF} | cut -d/ -f3 | cut -d- -f1 | cut -d. -f1,2,3)"
+          echo "##[set-output name=version;]$(echo ${GITHUB_REF} | cut -d/ -f3 | cut -d- -f1,2)"
           echo "##[set-output name=cc;]$target_cross_compile-gcc"
           echo "##[set-output name=ar;]$target_cross_compile-ar"
 
@@ -46,7 +46,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ steps.extract_rust_info.outputs.version }}
-          nightly: ${{ contains(github.ref, 'nightly') }}
           default: true
           override: true
           target: ${{ steps.extract_rust_info.outputs.target }}
