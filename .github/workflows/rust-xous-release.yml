@@ -36,8 +36,14 @@ jobs:
             ;;
           esac
 
+          if [[ ${GITHUB_REF} == *"nightly"* ]]; then
+            # Extract the nightly toolchain version in the format <version>-<nightly-yyyy-mm-dd>
+            echo "##[set-output name=version;]$(echo ${GITHUB_REF} | cut -d- -f2,3,4,5)"
+          else
+            echo "##[set-output name=version;]$(echo ${GITHUB_REF} | cut -d- -f1 | cut -d. -f1,2,3)"
+          fi
+
           echo "##[set-output name=target;]$target"
-          echo "##[set-output name=version;]$(echo ${GITHUB_REF} | cut -d/ -f3 | cut -d- -f1,2)"
           echo "##[set-output name=cc;]$target_cross_compile-gcc"
           echo "##[set-output name=ar;]$target_cross_compile-ar"
 
