@@ -71,6 +71,7 @@ jobs:
           ssh-private-key: |
             ${{ secrets.SSH_KEY }}
             ${{ secrets.SSH_KEY_AT91BOOTSTRAP }}
+            ${{ secrets.SSH_KEY_AT91BOOTSTRAP_FFI }}
 
       - name: Build Rust libstd
         run: |
