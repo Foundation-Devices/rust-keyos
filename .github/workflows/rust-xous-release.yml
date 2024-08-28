@@ -68,7 +68,9 @@ jobs:
 
       - uses: webfactory/ssh-agent@v0.7.0
         with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
+          ssh-private-key: |
+            ${{ secrets.SSH_KEY }}
+            ${{ secrets.SSH_KEY_AT91BOOTSTRAP }}
 
       - name: Build Rust libstd
         run: |
