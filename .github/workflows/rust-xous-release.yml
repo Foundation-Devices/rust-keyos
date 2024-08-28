@@ -91,7 +91,7 @@ jobs:
           CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS: false
           CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
           RUSTC_BOOTSTRAP: 1
-          RUSTFLAGS: -Cforce-unwind-tables=yes -Cembed-bitcode=yes
+          RUSTFLAGS: --cfg keyos --check-cfg=cfg(keyos) -Cforce-unwind-tables=yes -Cembed-bitcode=yes
           __CARGO_DEFAULT_LIB_METADATA: stablestd
           CC: ${{ steps.extract_rust_info.outputs.cc }}
           AR: ${{ steps.extract_rust_info.outputs.ar }}
