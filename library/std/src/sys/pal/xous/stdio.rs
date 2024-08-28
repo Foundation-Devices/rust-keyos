@@ -125,9 +125,5 @@ pub fn panic_output() -> Option<impl io::Write> {
     // Send the "We're panicking" message (1000).
     try_scalar(log, LogScalar::BeginPanic.into()).ok();
 
-    // This is will fail in the case that the connection table is full, or if the
-    // graphics server is not running. Most servers do not already have this connection.
-    let gfx = try_connect("panic-to-screen!");
-
-    Some(PanicWriter { log, gfx })
+    Some(PanicWriter { log, gfx: None })
 }
