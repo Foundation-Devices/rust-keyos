@@ -16,22 +16,35 @@
 #
 # That would build and release a new version.
 
-if [ -z $RUST_TOOLCHAIN ]
-then
-    RUST_TOOLCHAIN=""
-fi
-
 set -e
 set -u
 # set -x
 set -o pipefail
 
-rust_sysroot=$(rustc $RUST_TOOLCHAIN --print sysroot)
+usage() {
+    echo "Usage: $0 [-t <riscv32imac-unknown-xous-elf|armv7a-unknown-xous-elf>]"
+    exit 1
+}
+
+while getopts "t:" o; do
+    case "${o}" in
+        t)
+            target=$OPTARG
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+target=${target:-riscv32imac-unknown-xous-elf}
+
+rust_sysroot=$(rustc --print sysroot)
 
 export RUST_COMPILER_RT_ROOT="$(pwd)/src/llvm-project/compiler-rt"
 export CARGO_PROFILE_RELEASE_DEBUG=0
 export CARGO_PROFILE_RELEASE_OPT_LEVEL="3"
-export CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS="true"
+export CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS="false"
 export RUSTC_BOOTSTRAP=1
 export RUSTFLAGS="-Cforce-unwind-tables=yes -Cembed-bitcode=yes"
 export __CARGO_DEFAULT_LIB_METADATA="stablestd"
@@ -42,42 +55,79 @@ command_exists() {
 
 # Set up the C compiler. We need to explicitly specify these variables
 # because the `cc` package obviously doesn't recognize our target triple.
-if [ ! -z $CC ]
-then
-    echo "Using compiler $CC"
-elif command_exists riscv32-unknown-elf-gcc
-then
-    export CC="riscv32-unknown-elf-gcc"
-    export AR="riscv32-unknown-elf-ar"
-elif command_exists riscv-none-embed-gcc
-then
-    export CC ="riscv-none-embed-gcc"
-    export AR ="riscv-none-embed-ar"
-elif command_exists riscv64-unknown-elf-gcc
-then
-    export CC="riscv64-unknown-elf-gcc"
-    export AR="riscv64-unknown-elf-ar"
-else
-    echo "No C compiler found for riscv" 1>&2
-    exit 1
+case "$target" in
+    riscv32imac-unknown-xous-elf)
+        if command_exists riscv32-unknown-elf-gcc
+        then
+            export CC="riscv32-unknown-elf-gcc"
+            export AR="riscv32-unknown-elf-ar"
+        elif command_exists riscv-none-embed-gcc
+        then
+            export CC ="riscv-none-embed-gcc"
+            export AR ="riscv-none-embed-ar"
+        elif command_exists riscv64-unknown-elf-gcc
+        then
+            export CC="riscv64-unknown-elf-gcc"
+            export AR="riscv64-unknown-elf-ar"
+        else
+            echo "No C compiler found for riscv" 1>&2
+            exit 1
+        fi
+        ;;
+
+    armv7a-unknown-xous-elf)
+        if command_exists arm-none-eabi-gcc
+        then
+            export CC="arm-none-eabi-gcc"
+            export AR="arm-none-eabi-ar"
+        else
+            echo "No C compiler found for arm" 1>&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Invalid toolchain triple" 1>&2
+        exit 1
+        ;;
+esac
+
+# Patch llvm's source to not enable `u128` for our riscv32imac.
+if [ "$target" == "riscv32imac-unknown-xous-elf" ]; then
+    line_to_remove="define CRT_HAS_128BIT"
+    file_to_patch="./src/llvm-project/compiler-rt/lib/builtins/int_types.h"
+    sed -e "/$line_to_remove/d" "$file_to_patch" > "$file_to_patch.tmp"
+    mv "$file_to_patch.tmp" "$file_to_patch"
 fi
 
-src_path="./target/riscv32imac-unknown-xous-elf/release/deps"
-dest_path="$rust_sysroot/lib/rustlib/riscv32imac-unknown-xous-elf"
+src_path="./target/$target/release/deps"
+dest_path="$rust_sysroot/lib/rustlib/$target"
 dest_lib_path="$dest_path/lib"
+# function Get-ItemBaseName {
+#     param ($ItemName)
+#     # Write-Host "Item name: $ItemName"
+#     $sub_strings = $ItemName -split "-"
+#     $last_string_count = $sub_strings.Count
+#     $ItemName -replace "-$($sub_strings[$last_string_count-1])", ""
+#     # return $result
+# }
 
 mkdir -p $dest_lib_path
 
-rustc $RUST_TOOLCHAIN --version | awk '{print $2}' > "$dest_path/RUST_VERSION"
+if [ ! -e "$dest_path/target.json" ]
+then
+    cp "$target.json" "$dest_path/target.json"
+fi
+
+rustc --version | awk '{print $2}' > "$dest_path/RUST_VERSION"
 
 # Remove stale objects
 rm -f $dest_lib_path/*.rlib
 
 # TODO: Use below to remove duplicates
-# previous_libraries=$(ls -1 $src_path/*.rlib)
+# previous_libraries=$(ls -1 $src_path/*.rlib || echo "")
 
-cargo $RUST_TOOLCHAIN build \
-    --target riscv32imac-unknown-xous-elf \
+RUSTFLAGS="--cfg keyos --check-cfg=cfg(keyos)" cargo build \
+    --target $target \
     -Zbinary-dep-depinfo \
     --release \
     --features "panic-unwind compiler-builtins-c compiler-builtins-mem" \

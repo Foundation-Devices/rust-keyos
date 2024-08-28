@@ -8,9 +8,53 @@ mod os_str;
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::os_str::{OsStrExt, OsStringExt};
 
-mod definitions;
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use definitions::*;
+pub use xous::{
+    keyos::STACK_PAGE_COUNT,
+};
+use xous::{MemoryRange, SID, TID, CID, MemoryFlags as MemoryFlags2, Limits as Limits2, Error as Error2};
+use crate::num::NonZeroUsize;
+
+#[stable(feature = "rust1", since = "1.0.0")]
+pub type Error = Error2;
+
+#[stable(feature = "rust1", since = "1.0.0")]
+pub type Limits = Limits2;
+
+#[stable(feature = "rust1", since = "1.0.0")]
+pub type MemoryFlags = MemoryFlags2;
+
+#[stable(feature = "rust1", since = "1.0.0")]
+#[repr(transparent)]
+pub struct ServerAddress(SID);
+
+#[stable(feature = "rust1", since = "1.0.0")]
+pub type Connection = CID;
+
+#[stable(feature = "rust1", since = "1.0.0")]
+pub type ThreadId = TID;
+
+#[stable(feature = "rust1", since = "1.0.0")]
+impl TryFrom<&str> for ServerAddress {
+    type Error = ();
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let b = value.as_bytes();
+        if b.len() == 0 || b.len() > 16 {
+            return Err(());
+        }
+
+        let mut this_temp = [0u8; 16];
+        for (dest, src) in this_temp.iter_mut().zip(b.iter()) {
+            *dest = *src;
+        }
+
+        let mut this = [0u32; 4];
+        for (dest, src) in this.iter_mut().zip(this_temp.chunks_exact(4)) {
+            *dest = u32::from_le_bytes(src.try_into().unwrap());
+        }
+        Ok(ServerAddress(SID::from_array(this)))
+    }
+}
 
 fn lend_mut_impl(
     connection: Connection,
@@ -20,37 +64,19 @@ fn lend_mut_impl(
     arg2: usize,
     blocking: bool,
 ) -> Result<(usize, usize), Error> {
-    let mut a0 = if blocking { Syscall::SendMessage } else { Syscall::TrySendMessage } as usize;
-    let mut a1: usize = connection.try_into().unwrap();
-    let mut a2 = InvokeType::LendMut as usize;
-    let a3 = opcode;
-    let a4 = data.as_mut_ptr() as usize;
-    let a5 = data.len();
-    let a6 = arg1;
-    let a7 = arg2;
+    let range = unsafe { MemoryRange::new(data.as_mut_ptr() as usize, data.len())? };
+    let msg = xous::Message::new_lend_mut(opcode, range, Some(arg1.try_into().unwrap()), Some(arg2.try_into().unwrap()));
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
+    let result = if blocking {
+        xous::send_message(connection, msg)?
+    } else {
+        xous::try_send_message(connection, msg)?
     };
 
-    let result = a0;
-
-    if result == SyscallResult::MemoryReturned as usize {
-        Ok((a1, a2))
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::MemoryReturned(a, b) => Ok((a.unwrap().get(), b.unwrap().get())),
+        xous::Result::Error(e) => Err(e.into()),
+        _ => Err(Error::InternalError),
     }
 }
 
@@ -82,39 +108,19 @@ fn lend_impl(
     arg2: usize,
     blocking: bool,
 ) -> Result<(usize, usize), Error> {
-    let mut a0 = if blocking { Syscall::SendMessage } else { Syscall::TrySendMessage } as usize;
-    let a1: usize = connection.try_into().unwrap();
-    let a2 = InvokeType::Lend as usize;
-    let a3 = opcode;
-    let a4 = data.as_ptr() as usize;
-    let a5 = data.len();
-    let a6 = arg1;
-    let a7 = arg2;
-    let mut ret1;
-    let mut ret2;
+    let range = unsafe { MemoryRange::new(data.as_ptr() as usize, data.len())? };
+    let msg = xous::Message::new_lend(opcode, range, Some(arg1.try_into().unwrap()), Some(arg2.try_into().unwrap()));
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1 => ret1,
-            inlateout("a2") a2 => ret2,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
+    let result = if blocking {
+        xous::send_message(connection, msg)?
+    } else {
+        xous::try_send_message(connection, msg)?
     };
 
-    let result = a0;
-
-    if result == SyscallResult::MemoryReturned as usize {
-        Ok((ret1, ret2))
-    } else if result == SyscallResult::Error as usize {
-        Err(ret1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::MemoryReturned(a, b) => Ok((a.unwrap().get(), b.unwrap().get())),
+        xous::Result::Error(e) => Err(e.into()),
+        _ => Err(Error::InternalError),
     }
 }
 
@@ -139,37 +145,19 @@ pub(crate) fn try_lend(
 }
 
 fn scalar_impl(connection: Connection, args: [usize; 5], blocking: bool) -> Result<(), Error> {
-    let mut a0 = if blocking { Syscall::SendMessage } else { Syscall::TrySendMessage } as usize;
-    let mut a1: usize = connection.try_into().unwrap();
-    let a2 = InvokeType::Scalar as usize;
-    let a3 = args[0];
-    let a4 = args[1];
-    let a5 = args[2];
-    let a6 = args[3];
-    let a7 = args[4];
+    let [opcode, arg1, arg2, arg3, arg4] = args;
+    let msg = xous::Message::new_scalar(opcode, arg1, arg2, arg3, arg4);
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
+    let result = if blocking {
+        xous::send_message(connection, msg)?
+    } else {
+        xous::try_send_message(connection, msg)?
     };
 
-    let result = a0;
-
-    if result == SyscallResult::Ok as usize {
-        Ok(())
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::Ok => Ok(()),
+        xous::Result::Error(e) => Err(e.into()),
+        _ => Err(Error::InternalError),
     }
 }
 
@@ -185,42 +173,22 @@ fn blocking_scalar_impl(
     connection: Connection,
     args: [usize; 5],
     blocking: bool,
-) -> Result<[usize; 5], Error> {
-    let mut a0 = if blocking { Syscall::SendMessage } else { Syscall::TrySendMessage } as usize;
-    let mut a1: usize = connection.try_into().unwrap();
-    let mut a2 = InvokeType::BlockingScalar as usize;
-    let mut a3 = args[0];
-    let mut a4 = args[1];
-    let mut a5 = args[2];
-    let a6 = args[3];
-    let a7 = args[4];
+) -> Result<[usize; 5], xous::Error> {
+    let [opcode, arg1, arg2, arg3, arg4] = args;
+    let msg = xous::Message::new_blocking_scalar(opcode, arg1, arg2, arg3, arg4);
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2,
-            inlateout("a3") a3,
-            inlateout("a4") a4,
-            inlateout("a5") a5,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
+    let result = if blocking {
+        xous::send_message(connection, msg)?
+    } else {
+        xous::try_send_message(connection, msg)?
     };
 
-    let result = a0;
-
-    if result == SyscallResult::Scalar1 as usize {
-        Ok([a1, 0, 0, 0, 0])
-    } else if result == SyscallResult::Scalar2 as usize {
-        Ok([a1, a2, 0, 0, 0])
-    } else if result == SyscallResult::Scalar5 as usize {
-        Ok([a1, a2, a3, a4, a5])
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::Scalar1(a1) => Ok([a1, 0, 0, 0, 0]),
+        xous::Result::Scalar2(a1, a2) => Ok([a1, a2, 0, 0, 0]),
+        xous::Result::Scalar5(a1, a2, a3, a4, a5) => Ok([a1, a2, a3, a4, a5]),
+        xous::Result::Error(e) => Err(e),
+        _ => Err(Error::InternalError),
     }
 }
 
@@ -239,39 +207,11 @@ pub(crate) fn try_blocking_scalar(
 }
 
 fn connect_impl(address: ServerAddress, blocking: bool) -> Result<Connection, Error> {
-    let a0 = if blocking { Syscall::Connect } else { Syscall::TryConnect } as usize;
-    let address: [u32; 4] = address.into();
-    let a1: usize = address[0].try_into().unwrap();
-    let a2: usize = address[1].try_into().unwrap();
-    let a3: usize = address[2].try_into().unwrap();
-    let a4: usize = address[3].try_into().unwrap();
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
-
-    let mut result: usize;
-    let mut value: usize;
-
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0 => result,
-            inlateout("a1") a1 => value,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
-    if result == SyscallResult::ConnectionId as usize {
-        Ok(value.try_into().unwrap())
-    } else if result == SyscallResult::Error as usize {
-        Err(value.into())
+    Ok(if blocking {
+        xous::connect(address.0)?
     } else {
-        Err(Error::InternalError)
-    }
+        xous::try_connect(address.0)?
+    })
 }
 
 /// Connect to a Xous server represented by the specified `address`.
@@ -295,57 +235,14 @@ pub(crate) fn try_connect(address: ServerAddress) -> Result<Option<Connection>, 
 
 /// Terminate the current process and return the specified code to the parent process.
 pub(crate) fn exit(return_code: u32) -> ! {
-    let a0 = Syscall::TerminateProcess as usize;
-    let a1 = return_code as usize;
-    let a2 = 0;
-    let a3 = 0;
-    let a4 = 0;
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
-
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            in("a0") a0,
-            in("a1") a1,
-            in("a2") a2,
-            in("a3") a3,
-            in("a4") a4,
-            in("a5") a5,
-            in("a6") a6,
-            in("a7") a7,
-        )
-    };
-    unreachable!();
+    xous::terminate_process(return_code)
 }
 
 /// Suspend the current thread and allow another thread to run. This thread may
 /// continue executing again immediately if there are no other threads available
 /// to run on the system.
 pub(crate) fn do_yield() {
-    let a0 = Syscall::Yield as usize;
-    let a1 = 0;
-    let a2 = 0;
-    let a3 = 0;
-    let a4 = 0;
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
-
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0 => _,
-            inlateout("a1") a1 => _,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
+    xous::yield_slice();
 }
 
 /// Allocate memory from the system. An optional physical and/or virtual address
@@ -363,41 +260,13 @@ pub(crate) unsafe fn map_memory<T>(
     count: usize,
     flags: MemoryFlags,
 ) -> Result<&'static mut [T], Error> {
-    let mut a0 = Syscall::MapMemory as usize;
-    let mut a1 = phys.map(|p| p.as_ptr() as usize).unwrap_or_default();
-    let mut a2 = virt.map(|p| p.as_ptr() as usize).unwrap_or_default();
-    let a3 = count * core::mem::size_of::<T>();
-    let a4 = flags.bits();
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
+    let size = count * core::mem::size_of::<T>();
+    let phys_addr = phys.map(|p| NonZeroUsize::try_from(p.as_ptr() as usize).unwrap());
+    let virt_addr = virt.map(|p| NonZeroUsize::try_from(p.as_ptr() as usize).unwrap());
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
-
-    let result = a0;
-
-    if result == SyscallResult::MemoryRange as usize {
-        let start = core::ptr::with_exposed_provenance_mut::<T>(a1);
-        let len = a2 / core::mem::size_of::<T>();
-        let end = unsafe { start.add(len) };
-        Ok(unsafe { core::slice::from_raw_parts_mut(start, len) })
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
-    }
+    let range = xous::map_memory(phys_addr, virt_addr, size, flags)?;
+    let slice = core::slice::from_raw_parts_mut(range.as_mut_ptr() as *mut T, count);
+    Ok(slice)
 }
 
 /// Destroy the given memory, returning it to the compiler.
@@ -405,38 +274,11 @@ pub(crate) unsafe fn map_memory<T>(
 /// Safety: The memory pointed to by `range` should not be used after this
 /// function returns, even if this function returns Err().
 pub(crate) unsafe fn unmap_memory<T>(range: *mut [T]) -> Result<(), Error> {
-    let mut a0 = Syscall::UnmapMemory as usize;
-    let mut a1 = range.as_mut_ptr() as usize;
-    let a2 = range.len() * core::mem::size_of::<T>();
-    let a3 = 0;
-    let a4 = 0;
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
+    let addr = range.as_mut_ptr() as usize;
+    let len = range.len() * core::mem::size_of::<T>();
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
-
-    let result = a0;
-
-    if result == SyscallResult::Ok as usize {
-        Ok(())
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
-    }
+    let range = xous::MemoryRange::new(addr, len)?;
+    xous::unmap_memory(range)
 }
 
 /// Adjust the memory flags for the given range. This can be used to remove flags
@@ -450,37 +292,16 @@ pub(crate) unsafe fn update_memory_flags<T>(
     range: *mut [T],
     new_flags: MemoryFlags,
 ) -> Result<(), Error> {
-    let mut a0 = Syscall::UpdateMemoryFlags as usize;
-    let mut a1 = range.as_mut_ptr() as usize;
-    let a2 = range.len() * core::mem::size_of::<T>();
-    let a3 = new_flags.bits();
-    let a4 = 0; // Process ID is currently None
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
+    let addr = range.as_mut_ptr() as usize;
+    let len = range.len() * core::mem::size_of::<T>();
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
+    let range = xous::MemoryRange::new(addr, len)?;
+    let result = xous::update_memory_flags(range, new_flags)?;
 
-    let result = a0;
-
-    if result == SyscallResult::Ok as usize {
-        Ok(())
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::Ok => Ok(()),
+        xous::Result::Error(e) => Err(e),
+        _ => Err(Error::InternalError),
     }
 }
 
@@ -493,114 +314,28 @@ pub(crate) fn create_thread(
     arg2: usize,
     arg3: usize,
 ) -> Result<ThreadId, Error> {
-    let mut a0 = Syscall::CreateThread as usize;
-    let mut a1 = start as usize;
-    let a2 = stack.as_mut_ptr() as usize;
-    let a3 = stack.len();
-    let a4 = arg0;
-    let a5 = arg1;
-    let a6 = arg2;
-    let a7 = arg3;
+    let a1 = start as usize;
+    let stack_addr = stack.as_mut_ptr() as usize;
+    let stack_size = stack.len();
+    let thread_init = xous::arch::args_to_thread(start as usize, stack_addr, stack_size, arg0, arg1, arg2, arg3)?;
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
+    let result = xous::rsyscall(xous::SysCall::CreateThread(thread_init))?;
 
-    let result = a0;
-
-    if result == SyscallResult::ThreadId as usize {
-        Ok(a1.into())
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::ThreadID(tid) => Ok(tid),
+        xous::Result::Error(e) => Err(e),
+        _ => Err(Error::InternalError),
     }
 }
 
 /// Wait for the given thread to terminate and return the exit code from that thread.
 pub(crate) fn join_thread(thread_id: ThreadId) -> Result<usize, Error> {
-    let mut a0 = Syscall::JoinThread as usize;
-    let mut a1 = thread_id.into();
-    let a2 = 0;
-    let a3 = 0;
-    let a4 = 0;
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
-
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
-
-    let result = a0;
-
-    if result == SyscallResult::Scalar1 as usize {
-        Ok(a1)
-    } else if result == SyscallResult::Scalar2 as usize {
-        Ok(a1)
-    } else if result == SyscallResult::Scalar5 as usize {
-        Ok(a1)
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
-    }
+    xous::join_thread(thread_id)
 }
 
 /// Get the current thread's ID
 pub(crate) fn thread_id() -> Result<ThreadId, Error> {
-    let mut a0 = Syscall::GetThreadId as usize;
-    let mut a1 = 0;
-    let a2 = 0;
-    let a3 = 0;
-    let a4 = 0;
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
-
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
-
-    let result = a0;
-
-    if result == SyscallResult::ThreadId as usize {
-        Ok(a1.into())
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
-    }
+    xous::current_tid()
 }
 
 /// Adjust the given `knob` limit to match the new value `new`. The current value must
@@ -612,38 +347,17 @@ pub(crate) fn thread_id() -> Result<ThreadId, Error> {
 /// An error is generated if the `knob` is not a valid limit, or if the call
 /// would not succeed.
 pub(crate) fn adjust_limit(knob: Limits, current: usize, new: usize) -> Result<usize, Error> {
-    let mut a0 = Syscall::JoinThread as usize;
-    let mut a1 = knob as usize;
+    let knob = knob as usize;
     let a2 = current;
     let a3 = new;
-    let a4 = 0;
-    let a5 = 0;
-    let a6 = 0;
-    let a7 = 0;
 
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0,
-            inlateout("a1") a1,
-            inlateout("a2") a2 => _,
-            inlateout("a3") a3 => _,
-            inlateout("a4") a4 => _,
-            inlateout("a5") a5 => _,
-            inlateout("a6") a6 => _,
-            inlateout("a7") a7 => _,
-        )
-    };
+    let syscall = xous::SysCall::AdjustProcessLimit(knob, a2, a3);
+    let result = xous::rsyscall(syscall)?;
 
-    let result = a0;
-
-    if result == SyscallResult::Scalar2 as usize && a1 == knob as usize {
-        Ok(a2)
-    } else if result == SyscallResult::Scalar5 as usize && a1 == knob as usize {
-        Ok(a1)
-    } else if result == SyscallResult::Error as usize {
-        Err(a1.into())
-    } else {
-        Err(Error::InternalError)
+    match result {
+        xous::Result::Scalar2(a1, a2) if a1 == knob as usize => Ok(a2),
+        xous::Result::Scalar5(a1, a2, ..) if a1 == knob as usize => Ok(a1),
+        xous::Result::Error(e) => Err(e),
+        _ => Err(Error::InternalError),
     }
 }

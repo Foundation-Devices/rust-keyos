@@ -10,8 +10,6 @@ use crate::path::{Path, PathBuf};
 use crate::sys::time::SystemTime;
 use crate::sys::unsupported;
 
-use super::senres::{self, Senres, SenresMut};
-
 pub use crate::sys_common::fs::try_exists;
 
 pub struct File {
@@ -198,55 +196,7 @@ impl OpenOptions {
 
 impl File {
     pub fn open(path: &Path, opts: &OpenOptions) -> io::Result<File> {
-        let mut request = senres::Stack::<4096>::new();
-        let path_as_str = path.as_os_str().to_str().ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-        })?;
-
-        {
-            let mut writer = request.writer(*b"KyOQ").ok_or_else(|| {
-                crate::io::Error::new(
-                    crate::io::ErrorKind::InvalidFilename,
-                    "unable to create request",
-                )
-            })?;
-
-            writer.append(path_as_str);
-            writer.append(opts.create_file);
-            writer.append(false); // create_path
-            writer.append(opts.create_new);
-            writer.append(opts.append);
-            writer.append(opts.truncate);
-            writer.append(0u64); // alloc_hint
-            writer.append::<Option<[u32; 4]>>(None); // callback SID
-        }
-
-        // Make the actual call
-        let (err, _) =
-            request.lend_mut(pddb_server(), PddbLendMut::OpenKeyStd.into()).or_else(|_| {
-                Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-            })?;
-
-        if err != 0 {
-            return Err(crate::io::Error::new(
-                crate::io::ErrorKind::Other,
-                "error occurred when opening file",
-            ));
-        }
-
-        let reader = request.reader(*b"KyOR").ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::Other, "invalid response from server")
-        })?;
-
-        let fd: u16 = reader.try_get_from().or_else(|_| {
-            Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-        })?;
-
-        let len: u64 = reader.try_get_from().or_else(|_| {
-            Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-        })?;
-
-        Ok(File { len, fd })
+        unimplemented!("File::open() is not implemented for this platform");
     }
 
     pub fn file_attr(&self) -> io::Result<FileAttr> {
@@ -400,22 +350,7 @@ impl DirBuilder {
     }
 
     pub fn mkdir(&self, p: &Path) -> io::Result<()> {
-        let path_as_str = p.as_os_str().to_str().ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-        })?;
-
-        let mut request = super::senres::Stack::<4096>::new();
-
-        let mut writer = request.writer(*b"NuDQ").ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-        })?;
-        writer.append(path_as_str);
-
-        // Make the actual call
-        request.lend_mut(pddb_server(), PddbLendMut::CreateDictStd.into()).or_else(|_| {
-            Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-        })?;
-        Ok(())
+        unsupported()
     }
 }
 
@@ -426,86 +361,11 @@ impl fmt::Debug for File {
 }
 
 pub fn readdir(p: &Path) -> io::Result<ReadDir> {
-    let path_as_str = p.as_os_str().to_str().ok_or_else(|| {
-        crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-    })?;
-    let (_basis, _dict) = match crate::sys::path::split_basis_and_dict(path_as_str, || None) {
-        Ok(s) => s,
-        Err(_) => {
-            return Err(crate::io::Error::new(crate::io::ErrorKind::Other, "path was not valid"));
-        }
-    };
-
-    let mut request = super::senres::Stack::<4096>::new();
-
-    // Write the request to the call
-    {
-        let mut writer = request.writer(*b"PthQ").ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-        })?;
-        writer.append(path_as_str);
-    }
-
-    // Make the actual call
-    request.lend_mut(pddb_server(), PddbLendMut::ListPathStd.into()).or_else(|_| {
-        Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-    })?;
-
-    // Read the data back
-    let reader = request.reader(*b"PthR").ok_or_else(|| {
-        crate::io::Error::new(crate::io::ErrorKind::Other, "invalid response from server")
-    })?;
-
-    let mut entries = vec![];
-    let count = reader.try_get_from::<u32>().unwrap() as usize;
-    for _ in 0..count {
-        let name = reader.try_get_ref_from().unwrap();
-        let kind = match reader.try_get_from::<u8>() {
-            Ok(0) => FileType::Basis,
-            Ok(1) => FileType::Dict,
-            Ok(2) => FileType::Key,
-            Ok(3) => FileType::DictKey,
-            Ok(4) => FileType::None,
-            _ => FileType::Unknown,
-        };
-        let mut path = path_as_str.to_owned();
-        if !path.is_empty() && !path.ends_with(crate::path::MAIN_SEPARATOR) {
-            path.push(crate::path::MAIN_SEPARATOR);
-        }
-        path.push_str(name);
-        entries.push(DirEntry {
-            name: name.to_owned(),
-            path,
-            // basis: basis.map(|m| m.to_owned()),
-            kind,
-        });
-    }
-
-    return Ok(ReadDir { entries, root: p.to_owned() });
+    unsupported()
 }
 
 pub fn unlink(p: &Path) -> io::Result<()> {
-    let path_as_str = p.as_os_str().to_str().ok_or_else(|| {
-        crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-    })?;
-    let mut request = super::senres::Stack::<4096>::new();
-    {
-        let mut writer = request.writer(*b"RmKQ").ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-        })?;
-        writer.append(path_as_str);
-    }
-
-    // Make the actual call
-    let (err, _) =
-        request.lend_mut(pddb_server(), PddbLendMut::DeleteKeyStd.into()).or_else(|_| {
-            Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-        })?;
-
-    if err != 0 {
-        return Err(crate::io::Error::new(crate::io::ErrorKind::Other, "error during operation"));
-    }
-    Ok(())
+    unsupported()
 }
 
 pub fn rename(_old: &Path, _new: &Path) -> io::Result<()> {
@@ -519,26 +379,7 @@ pub fn set_perm(_p: &Path, _perm: FilePermissions) -> io::Result<()> {
 }
 
 pub fn rmdir(p: &Path) -> io::Result<()> {
-    let path_as_str = p.as_os_str().to_str().ok_or_else(|| {
-        crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-    })?;
-
-    let mut request = super::senres::Stack::<4096>::new();
-
-    let mut writer = request.writer(*b"RmDQ").ok_or_else(|| {
-        crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-    })?;
-    writer.append(path_as_str);
-
-    // Make the actual call
-    let (err, _) =
-        request.lend_mut(pddb_server(), PddbLendMut::DeleteDictStd.into()).or_else(|_| {
-            Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-        })?;
-    if err != 0 {
-        return Err(crate::io::Error::new(crate::io::ErrorKind::Other, "error during operation"));
-    }
-    Ok(())
+    unsupported()
 }
 
 pub fn remove_dir_all(path: &Path) -> io::Result<()> {
@@ -570,43 +411,7 @@ pub fn link(_src: &Path, _dst: &Path) -> io::Result<()> {
 }
 
 pub fn stat(p: &Path) -> io::Result<FileAttr> {
-    let path_as_str = p.as_os_str().to_str().ok_or_else(|| {
-        crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-    })?;
-    let mut request = super::senres::Stack::<4096>::new();
-
-    // Write the request to the call
-    {
-        let mut writer = request.writer(*b"StaQ").ok_or_else(|| {
-            crate::io::Error::new(crate::io::ErrorKind::InvalidFilename, "invalid path")
-        })?;
-        writer.append(path_as_str);
-    }
-
-    // Make the actual call
-    request.lend_mut(pddb_server(), PddbLendMut::StatPathStd.into()).or_else(|_| {
-        Err(crate::io::Error::new(crate::io::ErrorKind::Other, "unable to query database"))
-    })?;
-
-    // Read the data back
-    let reader = request.reader(*b"StaR").expect("unable to get reader");
-    let kind = match reader.try_get_from::<u8>() {
-        Ok(0) => FileType::Basis,
-        Ok(1) => FileType::Dict,
-        Ok(2) => FileType::Key,
-        Ok(3) => FileType::DictKey,
-        Ok(4) => FileType::None,
-        Ok(5) => FileType::Unknown,
-        _ => FileType::Unknown,
-    };
-
-    match kind {
-        FileType::None | FileType::Unknown => Err(crate::io::Error::new(
-            crate::io::ErrorKind::NotFound,
-            "File or directory does not exist, or is corrupted",
-        )),
-        _ => Ok(FileAttr { kind, len: 0 }),
-    }
+    unsupported()
 }
 
 pub fn lstat(p: &Path) -> io::Result<FileAttr> {

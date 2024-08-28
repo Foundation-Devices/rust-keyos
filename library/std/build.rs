@@ -66,6 +66,11 @@ fn main() {
         println!("cargo:rustc-cfg=restricted_std");
     }
 
+    if target_os == "xous" && target_arch == "arm" {
+        println!("cargo:rustc-check-cfg=cfg(keyos)");
+        println!("cargo:rustc-cfg=keyos");
+    }
+
     println!("cargo:rustc-check-cfg=cfg(backtrace_in_libstd)");
     println!("cargo:rustc-cfg=backtrace_in_libstd");
 

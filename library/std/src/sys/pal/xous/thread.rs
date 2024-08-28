@@ -3,25 +3,25 @@ use crate::io;
 use crate::num::NonZero;
 use crate::os::xous::ffi::{
     blocking_scalar, create_thread, do_yield, join_thread, map_memory, update_memory_flags,
-    MemoryFlags, Syscall, ThreadId,
+    MemoryFlags, STACK_PAGE_COUNT, unmap_memory,
 };
 use crate::os::xous::services::{ticktimer_server, TicktimerScalar};
 use crate::time::Duration;
+
 use core::arch::asm;
 
 pub struct Thread {
-    tid: ThreadId,
+    tid: xous::TID,
 }
 
 pub const DEFAULT_MIN_STACK_SIZE: usize = 131072;
-const MIN_STACK_SIZE: usize = 4096;
 pub const GUARD_PAGE_SIZE: usize = 4096;
 
 impl Thread {
     // unsafe: see thread::Builder::spawn_unchecked for safety requirements
     pub unsafe fn new(stack: usize, p: Box<dyn FnOnce()>) -> io::Result<Thread> {
         let p = Box::into_raw(Box::new(p));
-        let mut stack_size = crate::cmp::max(stack, MIN_STACK_SIZE);
+        let mut stack_size = crate::cmp::max(stack, 4096 * STACK_PAGE_COUNT);
 
         if (stack_size & 4095) != 0 {
             stack_size = (stack_size + 4095) & !4095;
@@ -89,15 +89,30 @@ impl Thread {
             // which tells the kernel to deallocate this thread.
             let mapped_memory_base = guard_page_pre;
             let mapped_memory_length = GUARD_PAGE_SIZE + stack_size + GUARD_PAGE_SIZE;
+
+
+            #[cfg(target_arch = "arm")]
             unsafe {
-                asm!(
-                    "ecall",
-                    "ret",
-                                        in("a0") Syscall::UnmapMemory as usize,
-                                        in("a1") mapped_memory_base,
-                                        in("a2") mapped_memory_length,
-                                        in("ra") 0xff80_3000usize,
-                                        options(nomem, nostack, noreturn)
+                let ptr: *mut usize = core::ptr::with_exposed_provenance_mut(mapped_memory_base);
+                unmap_memory(core::slice::from_raw_parts_mut(
+                    ptr,
+                    mapped_memory_length / core::mem::size_of::<usize>(),
+                )).unwrap()
+            }
+
+            // Exit the thread by returning to the magic address 0xff80_3000u32
+            #[cfg(target_arch = "riscv32")]
+            unsafe {
+                asm!("ret", in("a0") 0, in("ra") 0xff80_3000u32,
+                    options(nomem, nostack, noreturn)
+                );
+            }
+
+            // Exit the thread by returning to the magic address 0xff80_6000_u32
+            #[cfg(target_arch = "arm")]
+            unsafe {
+                asm!("bx {}", in(reg) 0xff80_6000_u32,
+                    options(nomem, nostack, noreturn)
                 );
             }
         }

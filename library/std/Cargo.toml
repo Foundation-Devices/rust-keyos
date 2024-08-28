@@ -9,7 +9,7 @@ description = "The Rust Standard Library"
 edition = "2021"
 
 [lib]
-crate-type = ["dylib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 alloc = { path = "../alloc", public = true }
@@ -44,7 +44,10 @@ rand = { version = "0.8.5", default-features = false, features = ["alloc"] }
 rand_xorshift = "0.3.0"
 
 [target.'cfg(any(all(target_family = "wasm", target_os = "unknown"), target_os = "xous", all(target_vendor = "fortanix", target_env = "sgx")))'.dependencies]
-dlmalloc = { version = "0.2.4", features = ['rustc-dep-of-std'] }
+dlmalloc = { git = "ssh://git@github.com/Foundation-Devices/dlmalloc-rs.git", branch = "xous-fixes-arm" }
+
+[target.'cfg(keyos)'.dependencies]
+xous = { git = "https://github.com/Foundation-Devices/keyOS.git", features = ['rustc-dep-of-std'], default-features = false }
 
 [target.x86_64-fortanix-unknown-sgx.dependencies]
 fortanix-sgx-abi = { version = "0.5.0", features = ['rustc-dep-of-std'], public = true }

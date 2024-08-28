@@ -41,6 +41,19 @@ extern "Rust" {
     static DTORS: AtomicPtr<Node>;
 }
 
+#[cfg(keyos)]
+fn tls_ptr_addr() -> *mut *mut u8 {
+    let mut tp: usize;
+    unsafe {
+        asm!(
+            "mrc p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+            out(reg) tp
+        )
+    }
+    core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
+}
+
+#[cfg(not(keyos))]
 fn tls_ptr_addr() -> *mut *mut u8 {
     let mut tp: usize;
     unsafe {
@@ -50,6 +63,28 @@ fn tls_ptr_addr() -> *mut *mut u8 {
         );
     }
     core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
+}
+
+#[cfg(keyos)]
+fn set_tls_ptr(tp: usize) {
+    unsafe {
+        // Set the hardware thread pointer
+        asm!(
+            "mcr p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+            in(reg) tp,
+        );
+    }
+}
+
+#[cfg(not(keyos))]
+fn set_tls_ptr(tp: usize) {
+    unsafe {
+        // Set the thread's `$tp` register
+        asm!(
+            "mv tp, {}",
+            in(reg) tp,
+        );
+    }
 }
 
 /// Create an area of memory that's unique per thread. This area will
@@ -78,13 +113,7 @@ fn tls_table() -> &'static mut [*mut u8] {
         assert!(*val as usize == 0);
     }
 
-    unsafe {
-        // Set the thread's `$tp` register
-        asm!(
-            "mv tp, {}",
-            in(reg) tp.as_mut_ptr() as usize,
-        );
-    }
+    set_tls_ptr(tp.as_mut_ptr() as usize);
     tp
 }
 
