@@ -65,7 +65,9 @@ fn lend_mut_impl(
     blocking: bool,
 ) -> Result<(usize, usize), Error> {
     let range = unsafe { MemoryRange::new(data.as_mut_ptr() as usize, data.len())? };
-    let msg = xous::Message::new_lend_mut(opcode, range, Some(arg1.try_into().unwrap()), Some(arg2.try_into().unwrap()));
+    let offset = if arg1 != 0 { Some(arg1.try_into().unwrap()) } else { None };
+    let valid = if arg2 != 0 { Some(arg2.try_into().unwrap()) } else { None };
+    let msg = xous::Message::new_lend_mut(opcode, range, offset, valid);
 
     let result = if blocking {
         xous::send_message(connection, msg)?
@@ -74,7 +76,9 @@ fn lend_mut_impl(
     };
 
     match result {
-        xous::Result::MemoryReturned(a, b) => Ok((a.unwrap().get(), b.unwrap().get())),
+        xous::Result::MemoryReturned(arg1, arg2) => Ok(
+            (arg1.map(|v| v.get()).unwrap_or_default(), arg2.map(|v| v.get()).unwrap_or_default())
+        ),
         xous::Result::Error(e) => Err(e.into()),
         _ => Err(Error::InternalError),
     }
@@ -109,7 +113,10 @@ fn lend_impl(
     blocking: bool,
 ) -> Result<(usize, usize), Error> {
     let range = unsafe { MemoryRange::new(data.as_ptr() as usize, data.len())? };
-    let msg = xous::Message::new_lend(opcode, range, Some(arg1.try_into().unwrap()), Some(arg2.try_into().unwrap()));
+    let offset = if arg1 != 0 { Some(arg1.try_into().unwrap()) } else { None };
+    let valid = if arg2 != 0 { Some(arg2.try_into().unwrap()) } else { None };
+
+    let msg = xous::Message::new_lend(opcode, range, offset, valid);
 
     let result = if blocking {
         xous::send_message(connection, msg)?
@@ -118,7 +125,9 @@ fn lend_impl(
     };
 
     match result {
-        xous::Result::MemoryReturned(a, b) => Ok((a.unwrap().get(), b.unwrap().get())),
+        xous::Result::MemoryReturned(arg1, arg2) => Ok(
+            (arg1.map(|v| v.get()).unwrap_or_default(), arg2.map(|v| v.get()).unwrap_or_default())
+        ),
         xous::Result::Error(e) => Err(e.into()),
         _ => Err(Error::InternalError),
     }
