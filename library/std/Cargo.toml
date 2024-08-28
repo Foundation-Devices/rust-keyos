@@ -44,7 +44,7 @@ rand = { version = "0.8.5", default-features = false, features = ["alloc"] }
 rand_xorshift = "0.3.0"
 
 [target.'cfg(any(all(target_family = "wasm", target_os = "unknown"), target_os = "xous", all(target_vendor = "fortanix", target_env = "sgx")))'.dependencies]
-dlmalloc = { git = "ssh://git@github.com/Foundation-Devices/dlmalloc-rs.git", branch = "xous-fixes-arm" }
+dlmalloc = { git = "ssh://git@github.com/Foundation-Devices/dlmalloc-rs.git", branch = "xous-fixes-arm", features = ["rustc-dep-of-std"] }
 
 [target.'cfg(keyos)'.dependencies]
 xous = { git = "https://github.com/Foundation-Devices/keyOS.git", features = ['rustc-dep-of-std'], default-features = false }
