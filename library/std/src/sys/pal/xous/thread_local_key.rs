@@ -104,7 +104,7 @@ fn tls_table() -> &'static mut [*mut u8] {
             None,
             None,
             TLS_MEMORY_SIZE / core::mem::size_of::<*mut u8>(),
-            MemoryFlags::R | MemoryFlags::W,
+            MemoryFlags::W,
         )
         .expect("Unable to allocate memory for thread local storage")
     };

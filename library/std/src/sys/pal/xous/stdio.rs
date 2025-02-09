@@ -5,7 +5,7 @@ pub struct Stdout {}
 pub struct Stderr;
 
 use crate::os::xous::ffi::{lend, try_lend, try_scalar, Connection};
-use crate::os::xous::services::{log_server, try_connect, LogLend, LogScalar};
+use crate::os::xous::services::{log_server, LogLend, LogScalar};
 
 impl Stdin {
     pub const fn new() -> Stdin {
@@ -87,6 +87,11 @@ pub struct PanicWriter {
 
 impl io::Write for PanicWriter {
     fn write(&mut self, s: &[u8]) -> core::result::Result<usize, io::Error> {
+        // Save the panic text in the kernel in groups of 6 words
+        for c in s.chunks(core::mem::size_of::<usize>() * 6) {
+            xous::append_panic_message(c).ok();
+        }
+
         for c in s.chunks(core::mem::size_of::<usize>() * 4) {
             // Text is grouped into 4x `usize` words. The id is 1100 plus
             // the number of characters in this message.
