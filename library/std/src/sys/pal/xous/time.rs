@@ -1,7 +1,6 @@
 use crate::os::xous::ffi::blocking_scalar;
-use crate::os::xous::services::SystimeScalar::GetUtcTimeMs;
-use crate::os::xous::services::TicktimerScalar::ElapsedMs;
-use crate::os::xous::services::{systime_server, ticktimer_server};
+use crate::os::xous::services::TicktimerScalar::{ElapsedMs, GetSystemTime};
+use crate::os::xous::services::ticktimer_server;
 use crate::time::Duration;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
@@ -36,11 +35,9 @@ impl Instant {
 
 impl SystemTime {
     pub fn now() -> SystemTime {
-        let result = blocking_scalar(systime_server(), GetUtcTimeMs.into())
-            .expect("failed to request utc time in ms");
-        let lower = result[0];
-        let upper = result[1];
-        SystemTime { 0: Duration::from_millis((upper as u64) << 32 | lower as u64) }
+        let result = blocking_scalar(ticktimer_server(), GetSystemTime.into())
+            .expect("failed to request utc time in seconds");
+        SystemTime { 0: Duration::from_secs(result[0] as u64) }
     }
 
     pub fn sub_time(&self, other: &SystemTime) -> Result<Duration, Duration> {

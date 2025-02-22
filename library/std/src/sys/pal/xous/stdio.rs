@@ -4,8 +4,8 @@ pub struct Stdin;
 pub struct Stdout {}
 pub struct Stderr;
 
-use crate::os::xous::ffi::{Connection, lend, try_lend, try_scalar};
-use crate::os::xous::services::{LogLend, LogScalar, log_server, try_connect};
+use crate::os::xous::ffi::{lend, try_lend, try_scalar, Connection};
+use crate::os::xous::services::{log_server, LogLend, LogScalar};
 
 impl Stdin {
     pub const fn new() -> Stdin {
@@ -87,6 +87,11 @@ pub struct PanicWriter {
 
 impl io::Write for PanicWriter {
     fn write(&mut self, s: &[u8]) -> core::result::Result<usize, io::Error> {
+        // Save the panic text in the kernel in groups of 6 words
+        for c in s.chunks(core::mem::size_of::<usize>() * 6) {
+            xous::append_panic_message(c).ok();
+        }
+
         for c in s.chunks(core::mem::size_of::<usize>() * 4) {
             // Text is grouped into 4x `usize` words. The id is 1100 plus
             // the number of characters in this message.
@@ -125,9 +130,5 @@ pub fn panic_output() -> Option<impl io::Write> {
     // Send the "We're panicking" message (1000).
     try_scalar(log, LogScalar::BeginPanic.into()).ok();
 
-    // This is will fail in the case that the connection table is full, or if the
-    // graphics server is not running. Most servers do not already have this connection.
-    let gfx = try_connect("panic-to-screen!");
-
-    Some(PanicWriter { log, gfx })
+    Some(PanicWriter { log, gfx: None })
 }

@@ -105,10 +105,7 @@ pub(crate) mod guard {
                 #[allow(unused)]
                 use crate::rt::thread_cleanup;
             }
-        } else if #[cfg(any(
-            target_os = "hermit",
-            target_os = "xous",
-        ))] {
+        } else if #[cfg(target_os = "hermit")] {
             // `std` is the only runtime, so it just calls the destructor functions
             // itself when the time comes.
             pub(crate) fn enable() {}
