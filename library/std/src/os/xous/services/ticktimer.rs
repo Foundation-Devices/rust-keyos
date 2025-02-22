@@ -11,6 +11,7 @@ pub(crate) enum TicktimerScalar {
     NotifyCondition(usize /* cookie */, usize /* count */),
     FreeMutex(usize /* cookie */),
     FreeCondition(usize /* cookie */),
+    GetSystemTime,
 }
 
 impl Into<[usize; 5]> for TicktimerScalar {
@@ -24,6 +25,7 @@ impl Into<[usize; 5]> for TicktimerScalar {
             TicktimerScalar::NotifyCondition(cookie, count) => [9, cookie, count, 0, 0],
             TicktimerScalar::FreeMutex(cookie) => [10, cookie, 0, 0, 0],
             TicktimerScalar::FreeCondition(cookie) => [11, cookie, 0, 0, 0],
+            TicktimerScalar::GetSystemTime => [12, 0, 0, 0, 0],
         }
     }
 }

@@ -38,10 +38,6 @@ cfg_select! {
         mod libunwind;
         pub use libunwind::*;
     }
-    target_os = "xous" => {
-        mod unwinding;
-        pub use unwinding::*;
-    }
     target_family = "wasm" => {
         mod wasm;
         pub use wasm::*;

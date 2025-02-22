@@ -8,6 +8,7 @@ pub mod pipe;
 pub mod time;
 
 #[path = "../unsupported/common.rs"]
+#[allow(dead_code)]
 mod common;
 pub use common::*;
 

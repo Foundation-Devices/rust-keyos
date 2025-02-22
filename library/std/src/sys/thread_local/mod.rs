@@ -113,10 +113,7 @@ pub(crate) mod guard {
                 use crate::rt::thread_cleanup;
             }
         }
-        any(
-            target_os = "hermit",
-            target_os = "xous",
-        ) => {
+        target_os = "hermit" => {
             // `std` is the only runtime, so it just calls the destructor functions
             // itself when the time comes.
             pub(crate) fn enable() {}
