@@ -9,7 +9,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e4503c46a5c0c7844e948c9a4d6acd9f50cccb4de1c48eb9e291ea17470c678"
 dependencies = [
  "compiler_builtins",
- "gimli 0.29.0",
+ "gimli",
  "rustc-std-workspace-alloc",
  "rustc-std-workspace-core",
 ]
@@ -79,15 +79,15 @@ dependencies = [
 
 [[package]]
 name = "dlmalloc"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b5e0d321d61de16390ed273b647ce51605b575916d3c25e6ddf27a1e140035"
+version = "0.2.8"
+source = "git+ssh://git@github.com/Foundation-Devices/dlmalloc-rs.git?branch=xous-fixes-arm-2.8#f16d0faae34de88dcfbb7bcac0acd47b20e1eeec"
 dependencies = [
  "cfg-if",
  "compiler_builtins",
  "libc",
  "rustc-std-workspace-core",
  "windows-sys",
+ "xous",
 ]
 
 [[package]]
@@ -123,17 +123,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gimli"
-version = "0.31.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
-dependencies = [
- "compiler_builtins",
- "rustc-std-workspace-alloc",
- "rustc-std-workspace-core",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -153,6 +142,15 @@ checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
 dependencies = [
  "compiler_builtins",
  "rustc-std-workspace-alloc",
+ "rustc-std-workspace-core",
+]
+
+[[package]]
+name = "keyos"
+version = "0.1.0"
+source = "git+https://github.com/Foundation-Devices/keyOS.git#f2a9493819c32369f863e854ad65bf8d7aec4676"
+dependencies = [
+ "compiler_builtins",
  "rustc-std-workspace-core",
 ]
 
@@ -346,6 +344,7 @@ dependencies = [
  "unwind",
  "wasi",
  "windows-targets 0.0.0",
+ "xous",
 ]
 
 [[package]]
@@ -398,18 +397,6 @@ dependencies = [
  "compiler_builtins",
  "core",
  "libc",
- "unwinding",
-]
-
-[[package]]
-name = "unwinding"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51f06a05848f650946acef3bf525fe96612226b61f74ae23ffa4e98bfbb8ab3c"
-dependencies = [
- "compiler_builtins",
- "gimli 0.31.1",
- "rustc-std-workspace-core",
 ]
 
 [[package]]
@@ -499,3 +486,13 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "xous"
+version = "0.9.43"
+source = "git+https://github.com/Foundation-Devices/keyOS.git#f2a9493819c32369f863e854ad65bf8d7aec4676"
+dependencies = [
+ "compiler_builtins",
+ "keyos",
+ "rustc-std-workspace-core",
+]
