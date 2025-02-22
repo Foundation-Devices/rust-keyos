@@ -67,6 +67,19 @@ unsafe extern "Rust" {
     static DTORS: Atomic<*mut Node>;
 }
 
+#[cfg(keyos)]
+fn tls_ptr_addr() -> *mut *mut u8 {
+    let mut tp: usize;
+    unsafe {
+        asm!(
+        "mrc p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+        out(reg) tp
+        )
+    }
+    core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
+}
+
+#[cfg(not(keyos))]
 fn tls_ptr_addr() -> *mut *mut u8 {
     let mut tp: usize;
     unsafe {
@@ -78,7 +91,29 @@ fn tls_ptr_addr() -> *mut *mut u8 {
     core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
 }
 
-/// Creates an area of memory that's unique per thread. This area will
+#[cfg(keyos)]
+fn set_tls_ptr(tp: usize) {
+    unsafe {
+        // Set the hardware thread pointer
+        asm!(
+            "mcr p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+            in(reg) tp,
+        );
+    }
+}
+
+#[cfg(not(keyos))]
+fn set_tls_ptr(tp: usize) {
+    unsafe {
+        // Set the thread's `$tp` register
+        asm!(
+            "mv tp, {}",
+            in(reg) tp,
+        );
+    }
+}
+
+/// Create an area of memory that's unique per thread. This area will
 /// contain all thread local pointers.
 fn tls_table() -> &'static mut [*mut u8] {
     let tp = tls_ptr_addr();
@@ -95,7 +130,7 @@ fn tls_table() -> &'static mut [*mut u8] {
             None,
             None,
             TLS_MEMORY_SIZE / size_of::<*mut u8>(),
-            MemoryFlags::R | MemoryFlags::W,
+            MemoryFlags::W,
         )
         .expect("Unable to allocate memory for thread local storage")
     };
@@ -104,13 +139,7 @@ fn tls_table() -> &'static mut [*mut u8] {
         assert!(*val as usize == 0);
     }
 
-    unsafe {
-        // Set the thread's `$tp` register
-        asm!(
-            "mv tp, {}",
-            in(reg) tp.as_mut_ptr() as usize,
-        );
-    }
+    set_tls_ptr(tp.as_mut_ptr() as usize);
     tp
 }
 
@@ -209,6 +238,4 @@ unsafe fn run_dtors() {
             unsafe { cur = (*cur).next };
         }
     }
-
-    crate::rt::thread_cleanup();
 }

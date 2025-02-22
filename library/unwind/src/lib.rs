@@ -34,9 +34,6 @@ cfg_if::cfg_if! {
     ))] {
         mod libunwind;
         pub use libunwind::*;
-    } else if #[cfg(target_os = "xous")] {
-        mod unwinding;
-        pub use unwinding::*;
     } else if #[cfg(target_family = "wasm")] {
         mod wasm;
         pub use wasm::*;

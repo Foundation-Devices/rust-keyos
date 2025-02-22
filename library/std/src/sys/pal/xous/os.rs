@@ -2,7 +2,6 @@ use super::unsupported;
 use crate::error::Error as StdError;
 use crate::ffi::{OsStr, OsString};
 use crate::marker::PhantomData;
-use crate::os::xous::ffi::Error as XousError;
 use crate::path::{self, PathBuf};
 use crate::sync::atomic::{Atomic, AtomicPtr, Ordering};
 use crate::{fmt, io};
@@ -14,22 +13,7 @@ static PARAMS_ADDRESS: Atomic<*mut u8> = AtomicPtr::new(core::ptr::null_mut());
 #[cfg(not(test))]
 #[cfg(feature = "panic_unwind")]
 mod eh_unwinding {
-    pub(crate) struct EhFrameFinder;
-    pub(crate) static mut EH_FRAME_ADDRESS: usize = 0;
-    pub(crate) static EH_FRAME_SETTINGS: EhFrameFinder = EhFrameFinder;
-
-    unsafe impl unwind::EhFrameFinder for EhFrameFinder {
-        fn find(&self, _pc: usize) -> Option<unwind::FrameInfo> {
-            if unsafe { EH_FRAME_ADDRESS == 0 } {
-                None
-            } else {
-                Some(unwind::FrameInfo {
-                    text_base: None,
-                    kind: unwind::FrameInfoKind::EhFrame(unsafe { EH_FRAME_ADDRESS }),
-                })
-            }
-        }
-    }
+    // TODO
 }
 
 #[cfg(not(test))]
@@ -48,8 +32,9 @@ mod c_compat {
     pub extern "C" fn _start(eh_frame: usize, params_address: usize) {
         #[cfg(feature = "panic_unwind")]
         {
-            unsafe { super::eh_unwinding::EH_FRAME_ADDRESS = eh_frame };
-            unwind::set_custom_eh_frame_finder(&super::eh_unwinding::EH_FRAME_SETTINGS).ok();
+            // TODO
+            // unsafe { super::eh_unwinding::EH_FRAME_ADDRESS = eh_frame };
+            // unwind::set_custom_eh_frame_finder(&super::eh_unwinding::EH_FRAME_SETTINGS).ok();
         }
 
         if params_address != 0 {
@@ -69,7 +54,7 @@ pub fn errno() -> i32 {
 }
 
 pub fn error_string(errno: i32) -> String {
-    Into::<XousError>::into(errno).to_string()
+    format!("error #{}", errno)
 }
 
 pub fn getcwd() -> io::Result<PathBuf> {
