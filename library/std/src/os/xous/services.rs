@@ -11,9 +11,6 @@ pub(crate) use log::*;
 mod net;
 pub(crate) use net::*;
 
-mod systime;
-pub(crate) use systime::*;
-
 mod ticktimer;
 pub(crate) use ticktimer::*;
 

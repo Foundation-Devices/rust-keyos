@@ -1,30 +1,17 @@
 #![forbid(unsafe_op_in_unsafe_fn)]
 
+pub mod futex;
 pub mod params;
 
 #[path = "../unsupported/common.rs"]
+#[allow(dead_code)]
 mod common;
 pub use common::*;
 
 #[cfg(not(test))]
 #[cfg(feature = "panic-unwind")]
 mod eh_unwinding {
-    pub(crate) struct EhFrameFinder;
-    pub(crate) static mut EH_FRAME_ADDRESS: usize = 0;
-    pub(crate) static EH_FRAME_SETTINGS: EhFrameFinder = EhFrameFinder;
-
-    unsafe impl unwind::EhFrameFinder for EhFrameFinder {
-        fn find(&self, _pc: usize) -> Option<unwind::FrameInfo> {
-            if unsafe { EH_FRAME_ADDRESS == 0 } {
-                None
-            } else {
-                Some(unwind::FrameInfo {
-                    text_base: None,
-                    kind: unwind::FrameInfoKind::EhFrame(unsafe { EH_FRAME_ADDRESS }),
-                })
-            }
-        }
-    }
+    // TODO
 }
 
 #[cfg(not(test))]
@@ -41,14 +28,32 @@ mod c_compat {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn _start(eh_frame: usize, params: *mut u8) {
+    pub extern "C" fn _start(_eh_frame: usize, params: *mut u8, rnd_seed: usize) {
         #[cfg(feature = "panic-unwind")]
         {
-            unsafe { super::eh_unwinding::EH_FRAME_ADDRESS = eh_frame };
-            unwind::set_custom_eh_frame_finder(&super::eh_unwinding::EH_FRAME_SETTINGS).ok();
+            // TODO
+            // unsafe { super::eh_unwinding::EH_FRAME_ADDRESS = eh_frame };
+            // unwind::set_custom_eh_frame_finder(&super::eh_unwinding::EH_FRAME_SETTINGS).ok();
         }
 
+        init_stack_guard(rnd_seed as u32);
+
         unsafe { super::params::set(params) };
+
         exit(unsafe { main() });
     }
+
+    pub fn init_stack_guard(rnd_seed: u32) {
+        unsafe extern "C" {
+            static __stack_chk_guard: crate::sync::atomic::AtomicU32;
+        }
+
+        // Ensure at least one 0 byte to reduce certain string-overflow exploits
+        let canary = rnd_seed & 0xFFFF_FF00;
+
+        unsafe {
+            __stack_chk_guard.store(canary, crate::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
 }

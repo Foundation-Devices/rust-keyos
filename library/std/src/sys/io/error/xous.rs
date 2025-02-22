@@ -1,5 +1,3 @@
-use crate::os::xous::ffi::Error as XousError;
-
 pub fn errno() -> i32 {
     0
 }
@@ -13,5 +11,5 @@ pub fn decode_error_kind(_code: i32) -> crate::io::ErrorKind {
 }
 
 pub fn error_string(errno: i32) -> String {
-    Into::<XousError>::into(errno).to_string()
+    format!("error #{}", errno)
 }
