@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2023 Foundation Devices, Inc. <hello@foundation.xyz>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[toolchain]
+channel = "nightly-2025-02-16"
+components = ["rustfmt", "clippy", "rustc"]
+targets = []
+profile = "minimal"
