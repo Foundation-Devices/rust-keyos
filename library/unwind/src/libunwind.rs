@@ -104,7 +104,7 @@ pub type _Unwind_Exception_Cleanup_Fn =
 #[cfg_attr(
     all(
         feature = "llvm-libunwind",
-        any(target_os = "fuchsia", target_os = "linux", target_os = "xous")
+        any(target_os = "fuchsia", target_os = "linux")
     ),
     link(name = "unwind", kind = "static", modifiers = "-bundle")
 )]
@@ -137,7 +137,7 @@ if #[cfg(any(target_vendor = "apple", target_os = "netbsd", not(target_arch = "a
     pub use _Unwind_Action::*;
 
     #[cfg_attr(
-        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux", target_os = "xous")),
+        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux")),
         link(name = "unwind", kind = "static", modifiers = "-bundle")
     )]
     extern "C" {
@@ -195,7 +195,7 @@ if #[cfg(any(target_vendor = "apple", target_os = "netbsd", not(target_arch = "a
     pub const UNWIND_IP_REG: c_int = 15;
 
     #[cfg_attr(
-        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux", target_os = "xous")),
+        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux")),
         link(name = "unwind", kind = "static", modifiers = "-bundle")
     )]
     extern "C" {
@@ -268,14 +268,14 @@ if #[cfg(all(target_vendor = "apple", not(target_os = "watchos"), target_arch = 
     pub use _Unwind_SjLj_RaiseException as _Unwind_RaiseException;
 } else {
     #[cfg_attr(
-        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux", target_os = "xous")),
+        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux")),
         link(name = "unwind", kind = "static", modifiers = "-bundle")
     )]
     extern "C-unwind" {
         pub fn _Unwind_RaiseException(exception: *mut _Unwind_Exception) -> _Unwind_Reason_Code;
     }
     #[cfg_attr(
-        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux", target_os = "xous")),
+        all(feature = "llvm-libunwind", any(target_os = "fuchsia", target_os = "linux")),
         link(name = "unwind", kind = "static", modifiers = "-bundle")
     )]
     extern "C" {
