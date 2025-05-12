@@ -78,14 +78,14 @@ dependencies = [
 
 [[package]]
 name = "dlmalloc"
-version = "0.2.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa3a2dbee57b69fbb5dbe852fa9c0925697fb0c7fbcb1593e90e5ffaedf13d51"
+version = "0.2.11"
+source = "git+https://git@github.com/Foundation-Devices/dlmalloc-rs.git?branch=0.2.11-xous-arm#7f2808834867f78209841acf6520b16d4c0bbb99"
 dependencies = [
  "cfg-if",
  "libc",
  "rustc-std-workspace-core",
  "windows-sys",
+ "xous",
 ]
 
 [[package]]
@@ -134,6 +134,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 dependencies = [
  "rustc-std-workspace-alloc",
+ "rustc-std-workspace-core",
+]
+
+[[package]]
+name = "keyos"
+version = "0.1.0"
+source = "git+https://github.com/Foundation-Devices/keyOS.git#82aea093f44463c3456057582824bd75d3a0615f"
+dependencies = [
  "rustc-std-workspace-core",
 ]
 
@@ -329,6 +337,7 @@ dependencies = [
  "wasi 0.11.1+wasi-snapshot-preview1",
  "wasi 0.14.4+wasi-0.2.4",
  "windows-targets 0.0.0",
+ "xous",
 ]
 
 [[package]]
@@ -365,17 +374,6 @@ name = "unwind"
 version = "0.0.0"
 dependencies = [
  "libc",
- "rustc-std-workspace-core",
- "unwinding",
-]
-
-[[package]]
-name = "unwinding"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60612c845ef41699f39dc8c5391f252942c0a88b7d15da672eff0d14101bbd6d"
-dependencies = [
- "gimli",
  "rustc-std-workspace-core",
 ]
 
@@ -484,5 +482,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "052283831dbae3d879dc7f51f3d92703a316ca49f91540417d38591826127814"
 dependencies = [
  "rustc-std-workspace-alloc",
+ "rustc-std-workspace-core",
+]
+
+[[package]]
+name = "xous"
+version = "0.11.0"
+source = "git+https://github.com/Foundation-Devices/keyOS.git#82aea093f44463c3456057582824bd75d3a0615f"
+dependencies = [
+ "keyos",
  "rustc-std-workspace-core",
 ]
