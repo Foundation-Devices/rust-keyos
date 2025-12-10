@@ -1,5 +1,5 @@
 use crate::os::xous::ffi::blocking_scalar;
-use crate::os::xous::services::TicktimerScalar::{ElapsedMs, GetSystemTime};
+use crate::os::xous::services::TicktimerScalar::{ElapsedNs, GetSystemTime};
 use crate::os::xous::services::ticktimer_server;
 use crate::time::Duration;
 
@@ -13,11 +13,11 @@ pub const UNIX_EPOCH: SystemTime = SystemTime(Duration::from_secs(0));
 
 impl Instant {
     pub fn now() -> Instant {
-        let result = blocking_scalar(ticktimer_server(), ElapsedMs.into())
+        let result = blocking_scalar(ticktimer_server(), ElapsedNs.into())
             .expect("failed to request elapsed_ms");
         let lower = result[0];
         let upper = result[1];
-        Instant { 0: Duration::from_millis(lower as u64 | (upper as u64) << 32) }
+        Instant { 0: Duration::from_nanos(lower as u64 | (upper as u64) << 32) }
     }
 
     pub fn checked_sub_instant(&self, other: &Instant) -> Option<Duration> {
@@ -36,8 +36,10 @@ impl Instant {
 impl SystemTime {
     pub fn now() -> SystemTime {
         let result = blocking_scalar(ticktimer_server(), GetSystemTime.into())
-            .expect("failed to request utc time in seconds");
-        SystemTime { 0: Duration::from_secs(result[0] as u64) }
+            .expect("failed to request utc time in nanoseconds");
+        let lower = result[0];
+        let upper = result[1];
+        SystemTime { 0: Duration::from_nanos(lower as u64 | (upper as u64) << 32) }
     }
 
     pub fn sub_time(&self, other: &SystemTime) -> Result<Duration, Duration> {

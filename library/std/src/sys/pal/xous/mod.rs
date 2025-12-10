@@ -2,6 +2,8 @@
 
 use crate::os::xous::ffi::exit;
 
+pub mod futex;
+
 pub mod os;
 #[path = "../unsupported/pipe.rs"]
 pub mod pipe;

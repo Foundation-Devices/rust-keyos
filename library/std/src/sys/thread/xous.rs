@@ -64,14 +64,8 @@ pub fn yield_now() {
 }
 
 pub fn sleep(dur: Duration) {
-    // Because the sleep server works on units of `usized milliseconds`, split
-    // the messages up into these chunks. This means we may run into issues
-    // if you try to sleep a thread for more than 49 days on a 32-bit system.
-    let mut millis = dur.as_millis();
-    while millis > 0 {
-        let sleep_duration = if millis > (usize::MAX as _) { usize::MAX } else { millis as usize };
-        blocking_scalar(ticktimer_server(), TicktimerScalar::SleepMs(sleep_duration).into())
-            .expect("failed to send message to ticktimer server");
-        millis -= sleep_duration as u128;
-    }
+    // u64::MAX nanoseconds is 500 years.
+    let nanoseconds: u64 = dur.as_nanos().try_into().unwrap_or(u64::MAX).max(1);
+    blocking_scalar(ticktimer_server(), TicktimerScalar::Sleep { nanoseconds }.into())
+        .expect("failed to send message to ticktimer server");
 }

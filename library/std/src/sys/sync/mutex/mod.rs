@@ -8,6 +8,7 @@ cfg_select! {
         target_os = "dragonfly",
         all(target_family = "wasm", target_feature = "atomics"),
         target_os = "hermit",
+        target_os = "xous",
     ) => {
         mod futex;
         pub use futex::Mutex;
@@ -34,10 +35,6 @@ cfg_select! {
     target_os = "solid_asp3" => {
         mod itron;
         pub use itron::Mutex;
-    }
-    target_os = "xous" => {
-        mod xous;
-        pub use xous::Mutex;
     }
     _ => {
         mod no_threads;

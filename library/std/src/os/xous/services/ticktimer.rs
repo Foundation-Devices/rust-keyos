@@ -3,28 +3,24 @@ use core::sync::atomic::{Atomic, AtomicU32, Ordering};
 use crate::os::xous::ffi::Connection;
 
 pub(crate) enum TicktimerScalar {
-    ElapsedMs,
-    SleepMs(usize),
-    LockMutex(usize /* cookie */),
-    UnlockMutex(usize /* cookie */),
-    WaitForCondition(usize /* cookie */, usize /* timeout (ms) */),
-    NotifyCondition(usize /* cookie */, usize /* count */),
-    FreeMutex(usize /* cookie */),
-    FreeCondition(usize /* cookie */),
+    ElapsedNs,
+    Sleep { nanoseconds: u64 },
+    WaitForCondition { cookie: usize, timeout_ns: u64 },
+    NotifyCondition { cookie: usize, count: usize },
     GetSystemTime,
 }
 
 impl Into<[usize; 5]> for TicktimerScalar {
     fn into(self) -> [usize; 5] {
         match self {
-            TicktimerScalar::ElapsedMs => [0, 0, 0, 0, 0],
-            TicktimerScalar::SleepMs(msecs) => [1, msecs, 0, 0, 0],
-            TicktimerScalar::LockMutex(cookie) => [6, cookie, 0, 0, 0],
-            TicktimerScalar::UnlockMutex(cookie) => [7, cookie, 0, 0, 0],
-            TicktimerScalar::WaitForCondition(cookie, timeout_ms) => [8, cookie, timeout_ms, 0, 0],
-            TicktimerScalar::NotifyCondition(cookie, count) => [9, cookie, count, 0, 0],
-            TicktimerScalar::FreeMutex(cookie) => [10, cookie, 0, 0, 0],
-            TicktimerScalar::FreeCondition(cookie) => [11, cookie, 0, 0, 0],
+            TicktimerScalar::ElapsedNs => [0, 0, 0, 0, 0],
+            TicktimerScalar::Sleep { nanoseconds } => {
+                [1, (nanoseconds & 0xffffffff) as usize, (nanoseconds >> 32) as usize, 0, 0]
+            }
+            TicktimerScalar::WaitForCondition { cookie, timeout_ns } => {
+                [8, cookie, (timeout_ns & 0xffffffff) as usize, (timeout_ns >> 32) as usize, 0]
+            }
+            TicktimerScalar::NotifyCondition { cookie, count } => [9, cookie, count, 0, 0],
             TicktimerScalar::GetSystemTime => [12, 0, 0, 0, 0],
         }
     }

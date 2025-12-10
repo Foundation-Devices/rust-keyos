@@ -9,6 +9,7 @@ cfg_select! {
         target_os = "fuchsia",
         all(target_family = "wasm", target_feature = "atomics"),
         target_os = "hermit",
+        target_os = "xous",
     ) => {
         mod futex;
         pub use futex::RwLock;
@@ -17,7 +18,6 @@ cfg_select! {
         target_family = "unix",
         all(target_os = "windows", target_vendor = "win7"),
         all(target_vendor = "fortanix", target_env = "sgx"),
-        target_os = "xous",
     ) => {
         mod queue;
         pub use queue::RwLock;
