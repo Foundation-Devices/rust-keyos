@@ -62,7 +62,7 @@ impl Condvar {
     // Returns false on timeout
     pub unsafe fn wait_timeout(&self, mutex: &Mutex, dur: Duration) -> bool {
         let mut nanos = dur.as_nanos() as u64;
-        // Ensure we don't wait for 0 ms, which would cause us to wait forever
+        // Ensure we don't send zero as parameter, as it could be handled special in the future.
         if nanos == 0 {
             nanos = 1;
         }

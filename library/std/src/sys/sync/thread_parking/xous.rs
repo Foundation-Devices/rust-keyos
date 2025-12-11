@@ -30,10 +30,12 @@ impl Parker {
         self.mtx.unlock();
     }
 
-    pub unsafe fn park_timeout(self: Pin<&Self>, timeout: Duration) {
+    pub unsafe fn park_timeout(self: Pin<&Self>, mut timeout: Duration) {
         self.mtx.lock();
-        while !self.token.load(Ordering::SeqCst) {
+        while timeout > Duration::ZERO && !self.token.load(Ordering::SeqCst) {
+            let start = crate::time::Instant::now();
             self.condvar.wait_timeout(&self.mtx, timeout);
+            timeout = timeout.saturating_sub(start.elapsed());
         }
         self.token.store(false, Ordering::SeqCst);
         self.mtx.unlock();

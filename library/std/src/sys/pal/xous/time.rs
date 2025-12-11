@@ -14,7 +14,7 @@ pub const UNIX_EPOCH: SystemTime = SystemTime(Duration::from_secs(0));
 impl Instant {
     pub fn now() -> Instant {
         let result = blocking_scalar(ticktimer_server(), ElapsedNs.into())
-            .expect("failed to request elapsed_ms");
+            .expect("failed to request elapsed");
         let lower = result[0];
         let upper = result[1];
         Instant { 0: Duration::from_nanos(lower as u64 | (upper as u64) << 32) }
