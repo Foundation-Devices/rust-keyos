@@ -18,6 +18,8 @@ mod eh_unwinding {
 #[cfg(not(test))]
 mod c_compat {
     use crate::os::xous::ffi::exit;
+    use crate::sync::atomic::{AtomicU32, Ordering};
+
     unsafe extern "C" {
         fn main() -> u32;
     }
@@ -28,13 +30,15 @@ mod c_compat {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn _start(_eh_frame: usize, params_address: usize) {
+    pub extern "C" fn _start(_eh_frame: usize, params_address: usize, rnd_seed: usize) {
         #[cfg(feature = "panic_unwind")]
         {
             // TODO
             // unsafe { super::eh_unwinding::EH_FRAME_ADDRESS = eh_frame };
             // unwind::set_custom_eh_frame_finder(&super::eh_unwinding::EH_FRAME_SETTINGS).ok();
         }
+
+        init_stack_guard(rnd_seed as u32);
 
         if params_address != 0 {
             let params_address = crate::ptr::with_exposed_provenance_mut::<u8>(params_address);
@@ -45,6 +49,27 @@ mod c_compat {
             }
         }
         exit(unsafe { main() });
+    }
+
+    /// Stack protection canary
+    #[unsafe(no_mangle)]
+    pub static __stack_chk_guard: AtomicU32 = AtomicU32::new(0);
+
+    /// Called by compiler-generated epilogues on mismatch.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn __stack_chk_fail() -> ! {
+        exit(1337)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn __stack_chk_fail_local() -> ! {
+        __stack_chk_fail()
+    }
+
+    pub fn init_stack_guard(rnd_seed: u32) {
+        // Ensure at least one 0 byte to reduce certain string-overflow exploits
+        let canary = rnd_seed & 0xFFFF_FF00;
+        __stack_chk_guard.store(canary, Ordering::Relaxed);
     }
 }
 
