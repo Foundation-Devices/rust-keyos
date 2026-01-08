@@ -118,7 +118,7 @@ rm -f $dest_lib_path/*.rlib
 # TODO: Use below to remove duplicates
 # previous_libraries=$(ls -1 $src_path/*.rlib || echo "")
 
-RUSTFLAGS="$RUSTFLAGS --cfg keyos --check-cfg=cfg(keyos)" cargo build \
+RUSTFLAGS="$RUSTFLAGS --cfg keyos --check-cfg=cfg(keyos) -C relocation-model=pie" cargo build \
     --target ${target} \
     -Zbinary-dep-depinfo \
     --release \
