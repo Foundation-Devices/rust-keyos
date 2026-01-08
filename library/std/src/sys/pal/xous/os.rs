@@ -51,25 +51,17 @@ mod c_compat {
         exit(unsafe { main() });
     }
 
-    /// Stack protection canary
-    #[unsafe(no_mangle)]
-    pub static __stack_chk_guard: AtomicU32 = AtomicU32::new(0);
-
-    /// Called by compiler-generated epilogues on mismatch.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn __stack_chk_fail() -> ! {
-        exit(1337)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn __stack_chk_fail_local() -> ! {
-        __stack_chk_fail()
-    }
-
     pub fn init_stack_guard(rnd_seed: u32) {
+        unsafe extern "C" {
+            static __stack_chk_guard: AtomicU32;
+        }
+
         // Ensure at least one 0 byte to reduce certain string-overflow exploits
         let canary = rnd_seed & 0xFFFF_FF00;
-        __stack_chk_guard.store(canary, Ordering::Relaxed);
+
+        unsafe {
+            __stack_chk_guard.store(canary, Ordering::Relaxed);
+        }
     }
 }
 
