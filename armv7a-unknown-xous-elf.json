@@ -16,5 +16,6 @@
   "executables": true,
   "relocation-model": "pie",
   "supports-stack-protector": true,
-  "os": "xous"
+  "os": "xous",
+  "frame-pointer": "non-leaf"
 }
