@@ -68,12 +68,24 @@ unsafe extern "Rust" {
     static DTORS: Atomic<*mut Node>;
 }
 
-#[cfg(keyos)]
+#[cfg(all(keyos, target_arch = "arm"))]
 fn tls_ptr_addr() -> *mut *mut u8 {
     let mut tp: usize;
     unsafe {
         asm!(
         "mrc p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+        out(reg) tp
+        )
+    }
+    core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
+}
+
+#[cfg(all(keyos, target_arch = "x86_64"))]
+fn tls_ptr_addr() -> *mut *mut u8 {
+    let mut tp: usize;
+    unsafe {
+        asm!(
+        "rdfsbase {}", // requires CR4.FSGSBASE, which the kernel sets
         out(reg) tp
         )
     }
@@ -92,12 +104,23 @@ fn tls_ptr_addr() -> *mut *mut u8 {
     core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
 }
 
-#[cfg(keyos)]
+#[cfg(all(keyos, target_arch = "arm"))]
 fn set_tls_ptr(tp: usize) {
     unsafe {
         // Set the hardware thread pointer
         asm!(
             "mcr p15, 0, {}, c13, c0, 2", // See ARM ARM B3.12.46
+            in(reg) tp,
+        );
+    }
+}
+
+#[cfg(all(keyos, target_arch = "x86_64"))]
+fn set_tls_ptr(tp: usize) {
+    unsafe {
+        // Set the hardware thread pointer
+        asm!(
+            "wrfsbase {}", // requires CR4.FSGSBASE, which the kernel sets
             in(reg) tp,
         );
     }
