@@ -1,7 +1,6 @@
 use core::sync::atomic::{Atomic, AtomicU32, Ordering};
 
 use crate::os::xous::ffi::Connection;
-use crate::os::xous::services::connect;
 
 pub(crate) enum NetBlockingScalar {
     StdGetTtlUdp(u16 /* fd */),                /* 36 */
@@ -90,7 +89,10 @@ pub(crate) fn net_server() -> Connection {
         return cid.into();
     }
 
-    let cid = connect("_Middleware Network Server_").unwrap();
+    // A fixed address rather than a name-server lookup, as the log and
+    // ticktimer servers also use: registering a name needs a manifest, and
+    // the x86_64 image has none.
+    let cid = crate::os::xous::ffi::connect("xous-net-server ".try_into().unwrap()).unwrap();
     NET_CONNECTION.store(cid.into(), Ordering::Relaxed);
     cid
 }
