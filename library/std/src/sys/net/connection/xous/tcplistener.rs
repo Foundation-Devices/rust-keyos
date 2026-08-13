@@ -106,6 +106,12 @@ impl TcpListener {
         Ok(fd.try_into().unwrap())
     }
 
+    /// The network server's name for this socket, which a readiness poll needs
+    /// in order to ask about a socket it did not open.
+    pub fn descriptor(&self) -> u16 {
+        self.fd.load(Ordering::Relaxed)
+    }
+
     pub fn socket_addr(&self) -> io::Result<SocketAddr> {
         Ok(self.local)
     }
@@ -164,12 +170,10 @@ impl TcpListener {
                     return Err(io::const_error!(io::ErrorKind::Other, "library error"));
                 };
 
-                // replenish the listener
-                let mut local_copy = self.local.clone(); // port is non-0 by this time, but the method signature needs a mut
-                let new_fd = TcpListener::bind_inner(&mut local_copy)?;
-                self.fd.store(new_fd, Ordering::Relaxed);
-
-                // now return a stream converted from the old stream's fd
+                // The listener keeps its own descriptor and stays listening;
+                // the accepted connection arrives on one of its own. A poll
+                // registered against this listener would otherwise be left
+                // watching a descriptor that no longer exists.
                 Ok((TcpStream::from_listener(stream_fd, self.local.port(), port, addr), addr))
             }
         } else {

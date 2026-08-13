@@ -226,6 +226,12 @@ impl TcpStream {
         }
     }
 
+    /// The network server's name for this socket, which a readiness poll needs
+    /// in order to ask about a socket it did not open.
+    pub fn descriptor(&self) -> u16 {
+        self.fd
+    }
+
     pub fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
         self.read_or_peek(buf, ReadOrPeek::Peek)
     }

@@ -4,6 +4,9 @@
 
 pub mod ffi;
 
+#[unstable(feature = "xous_net", issue = "none")]
+pub mod net;
+
 #[stable(feature = "rust1", since = "1.0.0")]
 pub mod services;
 

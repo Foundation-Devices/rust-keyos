@@ -20,6 +20,7 @@ macro_rules! unimpl {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct UdpSocket {
     fd: u16,
     local: SocketAddr,
@@ -33,6 +34,12 @@ pub struct UdpSocket {
 }
 
 impl UdpSocket {
+    /// The network server's name for this socket, which a readiness poll needs
+    /// in order to ask about a socket it did not open.
+    pub fn descriptor(&self) -> u16 {
+        self.fd
+    }
+
     pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<UdpSocket> {
         return each_addr(addr, inner);
 
