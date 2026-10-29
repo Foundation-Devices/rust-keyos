@@ -92,6 +92,18 @@ fn tls_ptr_addr() -> *mut *mut u8 {
     core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
 }
 
+#[cfg(all(keyos, target_arch = "aarch64"))]
+fn tls_ptr_addr() -> *mut *mut u8 {
+    let mut tp: usize;
+    unsafe {
+        asm!(
+        "mrs {}, tpidr_el0", // saved and restored per thread by the kernel
+        out(reg) tp
+        )
+    }
+    core::ptr::with_exposed_provenance_mut::<*mut u8>(tp)
+}
+
 #[cfg(not(keyos))]
 fn tls_ptr_addr() -> *mut *mut u8 {
     let mut tp: usize;
@@ -121,6 +133,17 @@ fn set_tls_ptr(tp: usize) {
         // Set the hardware thread pointer
         asm!(
             "wrfsbase {}", // requires CR4.FSGSBASE, which the kernel sets
+            in(reg) tp,
+        );
+    }
+}
+
+#[cfg(all(keyos, target_arch = "aarch64"))]
+fn set_tls_ptr(tp: usize) {
+    unsafe {
+        // Set the hardware thread pointer
+        asm!(
+            "msr tpidr_el0, {}", // saved and restored per thread by the kernel
             in(reg) tp,
         );
     }
