@@ -328,8 +328,8 @@ pub(crate) fn create_thread(
     }
 }
 
-/// Waits for the given thread to terminate and returns the exit code from that thread.
-pub(crate) fn join_thread(thread_id: ThreadId) -> Result<usize, Error> {
+/// Waits for the given thread to terminate.
+pub(crate) fn join_thread(thread_id: ThreadId) -> Result<(), Error> {
     xous::join_thread(thread_id)
 }
 
